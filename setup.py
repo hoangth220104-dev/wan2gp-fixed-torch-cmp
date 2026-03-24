@@ -315,12 +315,17 @@ def install_logic(env_name, env_type, env_path, py_k, torch_k, triton_k, sage_k,
 
     pip = template["install"].format(dir=env_path)
     
-    print(f"\n[2/3] Installing Torch: {config['components']['torch'][torch_k]['label']}...")
+    print(f"\n[2/4] Installing Torch: {config['components']['torch'][torch_k]['label']}...")
     torch_cmd = resolve_cmd(config['components']['torch'][torch_k]['cmd'])
     run_cmd(f"{pip} {torch_cmd}")
     
-    print(f"\n[3/3] Installing Requirements & Extras...")
+    print(f"\n[3a/4] Installing Requirements & Extras...")
     run_cmd(f"{pip} -r requirements.txt")
+
+    # Reinstall the torch stack to guarantee the CUDA-built wheels survive
+    # dependency resolution from packages like speechbrain, pyannote, etc.
+    print(f"\n[3b/4] Re-pinning Torch stack (ensuring ABI compatibility)...")
+    run_cmd(f"{pip} --force-reinstall --no-deps {torch_cmd}")
     
     if triton_k: 
         cmd = resolve_cmd(config['components']['triton'][triton_k]['cmd'])

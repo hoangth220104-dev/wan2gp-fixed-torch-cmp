@@ -1,4 +1,12 @@
 --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/
+
+# Prevent pip from overwriting the pre‑installed CUDA‑aware torch stack.
+# These are installed by setup.py/Colab *before* requirements.txt; the lines
+# below simply tell pip "these are already satisfied, don't touch them".
+torch
+torchvision
+torchaudio
+
 mmgp==3.7.6
 # Core AI stack
 diffusers==0.36.0
