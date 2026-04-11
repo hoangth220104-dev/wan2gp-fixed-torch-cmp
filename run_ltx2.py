@@ -26,8 +26,10 @@ project_root = Path(__file__).parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-# Set environment variables
+# Set environment variables BEFORE importing anything that might use CUDA
 os.environ["GRADIO_LANG"] = "en"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable TensorFlow oneDNN optimizations
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # Suppress TensorFlow warnings
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -215,11 +217,14 @@ def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="b
     
     from models.ltx2 import ltx2_handler
     
+    # Get the family_handler class
+    family_handler = ltx2_handler.family_handler
+    
     print(f"Loading LTX-2 model: {model_type}")
     print(f"Precision: {dtype}")
     
     # Get model definition
-    model_def = ltx2_handler.query_model_def(model_type, {})
+    model_def = family_handler.query_model_def(model_type, {})
     
     # Determine dtype
     if dtype == "bf16":
@@ -230,27 +235,6 @@ def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="b
         torch_dtype = torch.bfloat16  # Default to bf16 for LTX-2
     
     vae_dtype = torch.float32
-    
-    # Resolve transformer path
-    if transformer_path is None:
-        # Try to find transformer in models directory
-        transformer_path = fl.locate_file(f"{model_type}.safetensors")
-        if transformer_path is None:
-            # Try common patterns
-            for pattern in [f"ltx2*", f"LTX-2*"]:
-                try:
-                    transformer_path = fl.locate_file(pattern)
-                    if transformer_path:
-                        break
-                except:
-                    pass
-    
-    if transformer_path is None:
-        raise FileNotFoundError(
-            "Transformer checkpoint not found. Please specify --transformer_path"
-        )
-    
-    print(f"Transformer: {transformer_path}")
     
     # Resolve Gemma path
     if gemma_path is None:
@@ -267,7 +251,27 @@ def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="b
     # Load checkpoint paths
     from models.ltx2.ltx2_handler import _resolve_multi_file_paths
     checkpoint_paths = _resolve_multi_file_paths(model_def, model_type)
-    checkpoint_paths["transformer"] = [transformer_path] if isinstance(transformer_path, str) else transformer_path
+    
+    # Override transformer path if provided
+    if transformer_path is not None:
+        checkpoint_paths["transformer"] = [transformer_path] if isinstance(transformer_path, str) else transformer_path
+    elif checkpoint_paths.get("transformer") is None:
+        # Try to find transformer in models directory
+        try:
+            transformer_path = fl.locate_file(f"{model_type}.safetensors")
+            if transformer_path:
+                checkpoint_paths["transformer"] = [transformer_path]
+        except:
+            pass
+    
+    # Ensure we have a transformer path
+    if checkpoint_paths.get("transformer") is None:
+        raise FileNotFoundError(
+            "Transformer checkpoint not found. Please specify --transformer_path"
+        )
+    
+    print(f"Transformer: {checkpoint_paths['transformer']}")
+    print(f"Gemma text encoder: {gemma_path}")
     
     # Load the model
     print("Initializing LTX-2 model...")
