@@ -110,7 +110,7 @@ python run_ltx2.py \
 | `--vae_tile_size` | VAE tile size for memory efficiency | Auto |
 | `--sliding_window_size` | Sliding window size | 481 |
 | `--sliding_window_overlap` | Sliding window overlap | 17 |
-| `--vram_safety_coefficient` | VRAM safety coefficient | 1.0 |
+| `--vram_safety_coefficient` | VRAM safety coefficient (0.0-0.95) | 0.85 |
 
 ## Examples
 
@@ -163,17 +163,149 @@ python run_ltx2.py \
   --num_frames 49
 ```
 
+## GPU-Specific Recommendations
+
+### 24GB VRAM GPUs (RTX 3090/4090, RTX 5080)
+
+**Faster Settings** (good for testing/iteration):
+```bash
+python run_ltx2.py \
+  --model_type ltx2_19B \
+  --prompt "Your prompt" \
+  --profile 1 \
+  --dtype bf16 \
+  --width 768 \
+  --height 512 \
+  --num_frames 49 \
+  --num_inference_steps 30 \
+  --guidance_scale 4.0 \
+  --vram_safety_coefficient 0.75 \
+  --output_dir output
+```
+
+**Best Quality Settings** (for final renders):
+```bash
+python run_ltx2.py \
+  --model_type ltx2_19B \
+  --prompt "Your prompt" \
+  --profile 1 \
+  --dtype bf16 \
+  --width 1024 \
+  --height 576 \
+  --num_frames 121 \
+  --num_inference_steps 50 \
+  --guidance_scale 4.5 \
+  --vram_safety_coefficient 0.80 \
+  --output_dir output
+```
+
+**Notes for 24GB:**
+- LTX-2 19B runs well at most resolutions
+- LTX-2 22B requires profile 2 or higher and reduced frame count (< 81 frames)
+- Use profile 2 if you encounter OOM errors with profile 1
+
+---
+
+### 40GB VRAM GPUs (RTX 6000 Ada, A100-40GB, L40S)
+
+**Faster Settings**:
+```bash
+python run_ltx2.py \
+  --model_type ltx2_22B \
+  --prompt "Your prompt" \
+  --profile 0 \
+  --dtype bf16 \
+  --width 1024 \
+  --height 576 \
+  --num_frames 121 \
+  --num_inference_steps 30 \
+  --guidance_scale 3.0 \
+  --vram_safety_coefficient 0.85 \
+  --output_dir output
+```
+
+**Best Quality Settings**:
+```bash
+python run_ltx2.py \
+  --model_type ltx2_22B \
+  --prompt "Your prompt" \
+  --profile 0 \
+  --dtype bf16 \
+  --width 1280 \
+  --height 720 \
+  --num_frames 241 \
+  --num_inference_steps 50 \
+  --guidance_scale 3.5 \
+  --vram_safety_coefficient 0.90 \
+  --output_dir output
+```
+
+**Notes for 40GB:**
+- LTX-2 22B runs efficiently at standard resolutions
+- Can handle long videos (241+ frames) at 720p
+- Profile 0 keeps most in VRAM for maximum speed
+
+---
+
+### 80GB VRAM GPUs (A100-80GB, H100, H200)
+
+**Faster Settings**:
+```bash
+python run_ltx2.py \
+  --model_type ltx2_22B \
+  --prompt "Your prompt" \
+  --profile 0 \
+  --dtype bf16 \
+  --width 1280 \
+  --height 720 \
+  --num_frames 121 \
+  --num_inference_steps 30 \
+  --guidance_scale 3.0 \
+  --vram_safety_coefficient 0.90 \
+  --output_dir output
+```
+
+**Best Quality Settings**:
+```bash
+python run_ltx2.py \
+  --model_type ltx2_22B \
+  --prompt "Your prompt" \
+  --profile 0 \
+  --dtype bf16 \
+  --width 1920 \
+  --height 1088 \
+  --num_frames 241 \
+  --num_inference_steps 50 \
+  --guidance_scale 3.5 \
+  --vram_safety_coefficient 0.95 \
+  --output_dir output
+```
+
+**Notes for 80GB:**
+- Full 1080p generation is possible with LTX-2 22B
+- Can generate very long sequences (481+ frames with sliding window)
+- Profile 0 with high VRAM coefficient for maximum performance
+- Best quality uses 50+ steps for maximum detail
+
+---
+
 ## Memory Profiles
 
 The memory profiles control how the model is offloaded between CPU and GPU:
 
-- **Profile 0**: Maximum VRAM usage, fastest
-- **Profile 1**: High VRAM usage, very fast
-- **Profile 2**: Balanced (default)
-- **Profile 3**: Low VRAM usage, slower
-- **Profile 4**: Minimum VRAM usage, slowest
+- **Profile 0**: Maximum VRAM usage, fastest (requires 40GB+ VRAM for LTX-2 22B)
+- **Profile 1**: High VRAM usage, very fast (works well on 24GB for LTX-2 19B)
+- **Profile 2**: Balanced speed/VRAM usage (safe default for most GPUs)
+- **Profile 3**: Low VRAM usage, slower (for 16GB GPUs or complex scenes)
+- **Profile 4**: Minimum VRAM usage, slowest (for < 12GB GPUs)
 
-For GPUs with < 8GB VRAM, use profile 3 or 4.
+**Quick VRAM Requirements Guide:**
+
+| GPU VRAM | LTX-2 19B | LTX-2 22B |
+|----------|-----------|-----------|
+| 24GB | Profile 1-2, ≤121 frames | Profile 2-3, ≤81 frames |
+| 40GB | Profile 0-1, any resolution | Profile 0-1, ≤241 frames |
+| 80GB | Profile 0, maximum settings | Profile 0, 1080p, long videos |
 
 ## Notes
 

@@ -205,14 +205,14 @@ def parse_args():
     parser.add_argument(
         "--vram_safety_coefficient",
         type=float,
-        default=1.0,
-        help="VRAM safety coefficient (default: 1.0)"
+        default=0.0,
+        help="VRAM safety coefficient (0.0-0.95, default: 0.85). Higher = safer but slower"
     )
     
     return parser.parse_args()
 
 
-def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="bf16", profile=-1):
+def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="bf16", profile=-1, vram_safety_coefficient=0.0):
     """Load LTX-2 model and return the pipeline."""
     
     from models.ltx2 import ltx2_handler
@@ -241,12 +241,35 @@ def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="b
         gemma_folder = model_def.get("text_encoder_folder", "gemma-3-12b-it-qat-q4_0-unquantized")
         gemma_path = gemma_folder
     
-    if not os.path.exists(gemma_path):
-        raise FileNotFoundError(
-            f"Gemma text encoder not found at: {gemma_path}. Please specify --gemma_path"
-        )
+    # If gemma_path is a directory, find the safetensors file
+    if os.path.isdir(gemma_path):
+        # Look for safetensors file in the directory
+        safetensors_files = list(Path(gemma_path).glob("*.safetensors"))
+        if not safetensors_files:
+            raise FileNotFoundError(
+                f"No safetensors file found in {gemma_path}. "
+                f"Please specify the full path to the Gemma safetensors file."
+            )
+        if len(safetensors_files) > 1:
+            # Prefer the non-quanto version if multiple exist
+            for f in safetensors_files:
+                if "quanto" not in f.name.lower():
+                    safetensors_files = [f]
+                    break
+            else:
+                safetensors_files = [safetensors_files[0]]
+        
+        gemma_checkpoint_path = str(safetensors_files[0])
+        print(f"Found Gemma checkpoint: {gemma_checkpoint_path}")
+    else:
+        if not os.path.exists(gemma_path):
+            raise FileNotFoundError(
+                f"Gemma path not found: {gemma_path}. Please specify --gemma_path"
+            )
+        gemma_checkpoint_path = gemma_path
     
-    print(f"Gemma text encoder: {gemma_path}")
+    print(f"Gemma text encoder directory: {gemma_path}")
+    print(f"Gemma checkpoint file: {gemma_checkpoint_path}")
     
     # Load checkpoint paths
     from models.ltx2.ltx2_handler import _resolve_multi_file_paths
@@ -286,7 +309,7 @@ def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="b
         model_def=model_def,
         dtype=torch_dtype,
         VAE_dtype=vae_dtype,
-        text_encoder_filename=gemma_path,
+        text_encoder_filename=gemma_checkpoint_path,
         text_encoder_filepath=gemma_path,
         checkpoint_paths=checkpoint_paths,
     )
@@ -309,11 +332,12 @@ def load_ltx2_model(model_type, transformer_path=None, gemma_path=None, dtype="b
     
     # Setup offloading
     print("Configuring memory offloading...")
+    vram_coefficient = min(0.95, vram_safety_coefficient) if vram_safety_coefficient > 0 else 0.85
     offload_obj = offload.profile(
         pipe,
         profile_no=profile if profile >= 0 else 2,  # Default to profile 2
         quantizeTransformer=False,
-        vram_safety_coefficient=1.0,
+        vram_safety_coefficient=vram_coefficient,
     )
     
     load_time = time.time() - start_time
@@ -387,10 +411,23 @@ def generate_video(
         input_waveform_sample_rate = sr
     
     # Setup callback for progress tracking
-    def callback(step, num_steps, time_elapsed=None):
-        progress = (step + 1) / num_steps * 100
-        elapsed_str = f"{time_elapsed:.1f}s" if time_elapsed else "N/A"
-        print(f"\r  Step {step+1}/{num_steps} ({progress:.1f}%) - {elapsed_str}", end="", flush=True)
+    def callback(step, num_steps, *args, **kwargs):
+        # Handle different callback signatures
+        override_steps = kwargs.get('override_num_inference_steps')
+        if override_steps is not None:
+            total_steps = override_steps
+        elif num_steps is not None:
+            total_steps = num_steps
+        else:
+            total_steps = num_inference_steps
+        
+        if step >= 0:
+            progress = (step + 1) / total_steps * 100
+            print(f"\r  Step {step+1}/{total_steps} ({progress:.1f}%)", end="", flush=True)
+        else:
+            # Initialization call
+            pass_no = kwargs.get('pass_no', 1)
+            print(f"\n  Starting pass {pass_no}...")
     
     # Call generate
     print("\nStarting generation...")
@@ -549,6 +586,7 @@ def main():
         gemma_path=args.gemma_path,
         dtype=args.dtype,
         profile=args.profile,
+        vram_safety_coefficient=args.vram_safety_coefficient,
     )
     
     # Generate video
