@@ -365,6 +365,7 @@ def generate_video(
     sliding_window_size=481,
     sliding_window_overlap=17,
     audio_scale=1.0,
+    attention=None,
 ):
     """Generate video using LTX-2 model."""
     
@@ -411,23 +412,48 @@ def generate_video(
         input_waveform_sample_rate = sr
     
     # Setup callback for progress tracking
-    def callback(step, num_steps, *args, **kwargs):
-        # Handle different callback signatures
-        override_steps = kwargs.get('override_num_inference_steps')
-        if override_steps is not None:
-            total_steps = override_steps
-        elif num_steps is not None:
-            total_steps = num_steps
-        else:
-            total_steps = num_inference_steps
-        
-        if step >= 0:
-            progress = (step + 1) / total_steps * 100
-            print(f"\r  Step {step+1}/{total_steps} ({progress:.1f}%)", end="", flush=True)
-        else:
+    def callback(step, preview_latents, is_init_call=False, **kwargs):
+        # Handle initialization call vs step calls
+        if is_init_call or step < 0:
             # Initialization call
-            pass_no = kwargs.get('pass_no', 1)
-            print(f"\n  Starting pass {pass_no}...")
+            override_steps = kwargs.get('override_num_inference_steps')
+            if override_steps is not None:
+                if hasattr(override_steps, 'item'):
+                    total_steps = int(override_steps.item())
+                else:
+                    total_steps = int(override_steps)
+                print(f"\n  Starting pass {kwargs.get('pass_no', 1)} ({total_steps} steps)...")
+            else:
+                print(f"\n  Starting pass {kwargs.get('pass_no', 1)}...")
+            return
+        
+        # Step call - use the num_inference_steps we know about
+        total_steps = num_inference_steps
+        progress = (step + 1) / total_steps * 100
+        print(f"\r  Step {step+1}/{total_steps} ({progress:.1f}%)", end="", flush=True)
+    
+    # Setup attention mechanism
+    from shared.attention import get_supported_attention_modes
+    supported_attention_modes = get_supported_attention_modes()
+    
+    # Choose attention mode: prefer flash/sage if available, fallback to sdpa
+    if attention is not None:
+        attn_mode = attention
+    elif "flash" in supported_attention_modes:
+        attn_mode = "flash"
+    elif "sage2" in supported_attention_modes:
+        attn_mode = "sage2"
+    elif "sage" in supported_attention_modes:
+        attn_mode = "sage"
+    else:
+        attn_mode = "sdpa"
+    
+    if attn_mode not in supported_attention_modes:
+        print(f"Warning: Attention mode '{attn_mode}' not supported, falling back to 'sdpa'")
+        attn_mode = "sdpa"
+    
+    print(f"Using attention mode: {attn_mode}")
+    offload.shared_state["_attention"] = attn_mode
     
     # Call generate
     print("\nStarting generation...")
@@ -463,56 +489,91 @@ def generate_video(
     return result, seed
 
 
-def save_results(result, output_dir, output_filename=None, save_audio=False, seed=None):
+def save_results(result, output_dir, output_filename=None, save_audio=False, seed=None, prompt=None):
     """Save generated video and audio."""
-    
+
     import imageio
     from imageio_ffmpeg import get_ffmpeg_exe
-    
+
     os.makedirs(output_dir, exist_ok=True)
-    
+
     if result is None:
         print("ERROR: Generation returned None")
         return None, None
-    
+
     # Extract video tensor
     video_tensor = result.get("x")
     if video_tensor is None:
         print("ERROR: No video tensor in result")
         return None, None
-    
+
     # Convert tensor to numpy
     if torch.is_tensor(video_tensor):
         video_tensor = video_tensor.float().cpu().numpy()
-    
+
+    print(f"Video tensor shape before conversion: {video_tensor.shape}")
+
     # Handle different tensor formats
-    if video_tensor.ndim == 5:  # [C, F, H, W] or [B, C, F, H, W]
-        if video_tensor.shape[0] == 1:
-            video_tensor = video_tensor[0]
-        if video_tensor.shape[0] in [1, 3, 4]:  # [C, F, H, W]
-            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # [F, H, W, C]
-    
+    # Expected output: [F, H, W, C] where C is 1, 3, or 4
+    if video_tensor.ndim == 5:
+        # Could be [B, C, F, H, W] or [C, F, H, W, B] etc
+        if video_tensor.shape[1] in [1, 3, 4]:
+            # Format: [B, C, F, H, W]
+            video_tensor = video_tensor[0]  # Remove batch dim -> [C, F, H, W]
+            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # -> [F, H, W, C]
+        elif video_tensor.shape[0] in [1, 3, 4]:
+            # Format: [C, F, H, W, B]
+            video_tensor = video_tensor[:, :, :, :, 0] if video_tensor.shape[4] > 1 else video_tensor[:, :, :, :, 0]
+            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # -> [F, H, W, C]
+    elif video_tensor.ndim == 4:
+        # Could be [C, F, H, W] or [F, H, W, C]
+        if video_tensor.shape[0] in [1, 3, 4]:
+            # Format: [C, F, H, W]
+            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # -> [F, H, W, C]
+        # else already [F, H, W, C]
+
+    print(f"Video tensor shape after conversion: {video_tensor.shape}")
+
     # Ensure correct shape [F, H, W, C]
-    if video_tensor.ndim == 4:
-        if video_tensor.shape[-1] not in [1, 3, 4]:
-            video_tensor = np.transpose(video_tensor, (0, 2, 3, 1))
+    if video_tensor.ndim != 4:
+        print(f"ERROR: Unexpected tensor dimensions: {video_tensor.ndim}")
+        return None, None
     
+    # Check channels
+    num_channels = video_tensor.shape[-1]
+    if num_channels not in [1, 2, 3, 4]:
+        print(f"WARNING: Unexpected number of channels: {num_channels}. Attempting to fix...")
+        # Try to handle unusual channel counts
+        if num_channels > 4:
+            # Take first 3 channels as RGB
+            video_tensor = video_tensor[:, :, :, :3]
+            num_channels = 3
+        elif num_channels == 2:
+            # Duplicate to make 3 channels
+            video_tensor = np.repeat(video_tensor, 3, axis=-1)
+            num_channels = 3
+
     # Normalize to [0, 255]
-    if video_tensor.dtype == np.float16 or video_tensor.dtype == np.float32 or video_tensor.dtype == np.float64:
+    if video_tensor.dtype in [np.float16, np.float32, np.float64]:
         video_tensor = np.clip(video_tensor, -1.0, 1.0)
         video_tensor = ((video_tensor + 1.0) * 127.5).astype(np.uint8)
-    
+
     # Remove alpha channel if present
     if video_tensor.shape[-1] == 4:
         video_tensor = video_tensor[..., :3]
     elif video_tensor.shape[-1] == 1:
         video_tensor = np.repeat(video_tensor, 3, axis=-1)
     
+    print(f"Final video shape: {video_tensor.shape}")
+
     # Generate filename
     if output_filename is None:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        prompt_preview = sanitize_file_name(prompt[:50])
-        output_filename = f"ltx2_{timestamp}_{prompt_preview}_seed{seed}.mp4"
+        if prompt:
+            prompt_preview = sanitize_file_name(prompt[:50])
+            output_filename = f"ltx2_{timestamp}_{prompt_preview}_seed{seed}.mp4"
+        else:
+            output_filename = f"ltx2_{timestamp}_seed{seed}.mp4"
     
     if not output_filename.endswith(".mp4"):
         output_filename += ".mp4"
@@ -608,6 +669,7 @@ def main():
         vae_tile_size=args.vae_tile_size,
         sliding_window_size=args.sliding_window_size,
         sliding_window_overlap=args.sliding_window_overlap,
+        attention=args.attention,
     )
     
     # Save results
@@ -617,6 +679,7 @@ def main():
         output_filename=args.output_filename,
         save_audio=args.save_audio,
         seed=seed,
+        prompt=args.prompt,
     )
     
     if video_path:
