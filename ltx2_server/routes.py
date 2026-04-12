@@ -58,31 +58,36 @@ async def generate_video_endpoint(
     height: int = Form(512, description="Video height (divisible by 64)"),
     num_frames: int = Form(121, description="Number of frames"),
     fps: float = Form(24.0, description="Frames per second"),
-    num_inference_steps: Optional[int] = Form(None, description="Denoising steps"),
-    guidance_scale: Optional[float] = Form(None, description="CFG scale"),
-    seed: Optional[int] = Form(None, description="Random seed"),
+    num_inference_steps: str = Form("", description="Denoising steps"),
+    guidance_scale: str = Form("", description="CFG scale"),
+    seed: str = Form("", description="Random seed"),
     attention: Optional[str] = Form(None, description="Attention mode"),
     sliding_window_size: int = Form(481, description="Sliding window size"),
     sliding_window_overlap: int = Form(17, description="Sliding window overlap"),
 ):
     """Submit a video generation task"""
-    
+
     if not model_manager.is_loaded:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
+
     if task_queue.has_active_task:
         raise HTTPException(
             status_code=429,
             detail="A task is already running. Please wait for it to complete."
         )
-    
+
     # Adjust dimensions to be divisible by 64
     import numpy as np
     if width % 64 != 0:
         width = int(np.ceil(width / 64) * 64)
     if height % 64 != 0:
         height = int(np.ceil(height / 64) * 64)
-    
+
+    # Parse optional numeric fields (accept empty string as None)
+    parsed_steps = int(num_inference_steps) if num_inference_steps.strip() else None
+    parsed_guidance = float(guidance_scale) if guidance_scale.strip() else None
+    parsed_seed = int(seed) if seed.strip() else None
+
     # Save uploaded files
     upload_dir = Path(config.upload_dir)
     image_start_path = await _save_upload(image_start, upload_dir)
@@ -100,9 +105,9 @@ async def generate_video_endpoint(
         "height": height,
         "num_frames": num_frames,
         "fps": fps,
-        "num_inference_steps": num_inference_steps,
-        "guidance_scale": guidance_scale,
-        "seed": seed,
+        "num_inference_steps": parsed_steps,
+        "guidance_scale": parsed_guidance,
+        "seed": parsed_seed,
         "attention": attention,
         "sliding_window_size": sliding_window_size,
         "sliding_window_overlap": sliding_window_overlap,
@@ -189,16 +194,17 @@ async def get_models():
 async def _process_task(task_id: str):
     """Process a generation task in background"""
     task_queue.set_processing(task_id)
-    
+
     try:
         params = task_queue.get_task_params(task_id)
-        
+
         # Progress callback
         def on_progress(current_step, total_steps, progress):
             task_queue.update_progress(task_id, current_step, total_steps, progress)
-        
-        # Generate video
-        result, seed, gen_time = generate_video(
+
+        # Generate video in a separate thread to avoid blocking the event loop
+        result, seed, gen_time = await asyncio.to_thread(
+            generate_video,
             model_manager=model_manager,
             prompt=params["prompt"],
             negative_prompt=params["negative_prompt"],
@@ -218,20 +224,21 @@ async def _process_task(task_id: str):
             task_id=task_id,
             progress_callback=on_progress,
         )
-        
-        # Save video
-        video_path, filename = save_video_result(
+
+        # Save video (also synchronous, run in thread)
+        video_path, filename = await asyncio.to_thread(
+            save_video_result,
             result=result,
             seed=seed,
             output_dir=config.output_dir,
             prompt=params["prompt"],
             fps=params["fps"],
         )
-        
+
         # Mark completed
         task_queue.set_completed(task_id, video_path, filename, seed, gen_time)
         print(f"\n✓ Task {task_id} completed: {filename}")
-        
+
     except Exception as e:
         print(f"\n✗ Task {task_id} failed: {e}")
         import traceback
