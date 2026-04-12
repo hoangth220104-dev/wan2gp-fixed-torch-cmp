@@ -98,3 +98,8 @@ wetext==0.1.2
 # transformers==4.46.3  # for llamallava pre-patch
 # rembg==2.0.65         # non-GPU fallback
 # huggingface_hub[hf_xet]  # slows down everything
+
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20  # For file uploads

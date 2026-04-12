@@ -1,0 +1,6 @@
+# FastAPI server dependencies
+# Add these to the main requirements.txt or install separately
+
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20  # For file uploads

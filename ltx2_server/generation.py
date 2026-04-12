@@ -1,0 +1,203 @@
+"""Video generation logic"""
+
+import os
+import time
+import torch
+import numpy as np
+from pathlib import Path
+from typing import Optional, Dict, Any, Tuple
+from PIL import Image
+
+from shared.utils.utils import sanitize_file_name
+from shared.utils.audio_video import save_video as save_video_file
+from shared.attention import get_supported_attention_modes
+from mmgp import offload
+
+from ltx2_server.model_manager import ModelManager
+
+
+def generate_video(
+    model_manager: ModelManager,
+    prompt: str,
+    negative_prompt: str = "",
+    image_start_path: Optional[str] = None,
+    image_end_path: Optional[str] = None,
+    audio_guide_path: Optional[str] = None,
+    width: int = 768,
+    height: int = 512,
+    num_frames: int = 121,
+    fps: float = 24.0,
+    num_inference_steps: Optional[int] = None,
+    guidance_scale: Optional[float] = None,
+    seed: Optional[int] = None,
+    attention: Optional[str] = None,
+    sliding_window_size: int = 481,
+    sliding_window_overlap: int = 17,
+    task_id: Optional[str] = None,
+    progress_callback: Optional[callable] = None,
+) -> Tuple[Dict[str, Any], int, float]:
+    """
+    Generate video using LTX-2 model.
+    
+    Returns:
+        (result_dict, seed, generation_time_seconds)
+    """
+    
+    # Set defaults
+    if num_inference_steps is None:
+        num_inference_steps = model_manager.model_def.get("default_steps", 40)
+    
+    if guidance_scale is None:
+        guidance_scale = 4.0
+    
+    if seed is None:
+        seed = int(np.random.randint(0, 2**32 - 1))
+    
+    print(f"\n[{task_id}] Generation:")
+    print(f"  Prompt: {prompt[:80]}...")
+    print(f"  Resolution: {width}x{height}")
+    print(f"  Frames: {num_frames}")
+    print(f"  Steps: {num_inference_steps}")
+    print(f"  Guidance: {guidance_scale}")
+    print(f"  Seed: {seed}")
+    
+    # Load images if provided
+    image_start = Image.open(image_start_path).convert("RGB") if image_start_path else None
+    image_end = Image.open(image_end_path).convert("RGB") if image_end_path else None
+    
+    # Load audio if provided
+    input_waveform = None
+    input_waveform_sample_rate = None
+    
+    if audio_guide_path:
+        import soundfile as sf
+        import librosa
+        audio_data, sr = librosa.load(audio_guide_path, sr=None, mono=False)
+        if audio_data.ndim == 1:
+            audio_data = audio_data[np.newaxis, :]
+        input_waveform = audio_data
+        input_waveform_sample_rate = sr
+    
+    # Setup progress callback
+    def callback(step, preview_latents, is_init_call=False, **kwargs):
+        if is_init_call or step < 0:
+            override_steps = kwargs.get('override_num_inference_steps')
+            if override_steps is not None:
+                total = int(override_steps.item()) if hasattr(override_steps, 'item') else int(override_steps)
+                print(f"  Starting pass {kwargs.get('pass_no', 1)} ({total} steps)...")
+            return
+        
+        # Update progress
+        if progress_callback:
+            progress = (step + 1) / num_inference_steps * 100
+            progress_callback(step + 1, num_inference_steps, progress)
+        
+        print(f"\r  Step {step+1}/{num_inference_steps} ({(step + 1) / num_inference_steps * 100:.1f}%)", end="", flush=True)
+    
+    # Setup attention
+    supported_modes = get_supported_attention_modes()
+    attn_mode = attention or _select_attention(supported_modes)
+    
+    if attn_mode not in supported_modes:
+        print(f"  Warning: '{attn_mode}' not supported, using 'sdpa'")
+        attn_mode = "sdpa"
+    
+    print(f"  Attention: {attn_mode}")
+    offload.shared_state["_attention"] = attn_mode
+    
+    # Generate
+    print("\n  Generating...")
+    start_time = time.time()
+    
+    result = model_manager.generate(
+        input_prompt=prompt,
+        n_prompt=negative_prompt if negative_prompt else None,
+        image_start=image_start,
+        image_end=image_end,
+        sampling_steps=num_inference_steps,
+        guide_scale=guidance_scale,
+        alt_guide_scale=1.0,
+        input_video=None,
+        prefix_frames_count=0,
+        frame_num=num_frames,
+        height=height,
+        width=width,
+        fps=fps,
+        seed=seed,
+        callback=callback,
+        VAE_tile_size=None,
+        input_waveform=input_waveform,
+        input_waveform_sample_rate=input_waveform_sample_rate,
+        audio_scale=1.0,
+        sliding_window_size=sliding_window_size,
+        sliding_window_overlap=sliding_window_overlap,
+    )
+    
+    gen_time = time.time() - start_time
+    print(f"\n  Generation completed in {gen_time:.2f}s")
+    
+    return result, seed, gen_time
+
+
+def save_video_result(
+    result: Dict[str, Any],
+    seed: int,
+    output_dir: str = "output",
+    prompt: Optional[str] = None,
+    fps: float = 24.0,
+) -> Tuple[str, str]:
+    """
+    Save generated video to disk.
+    
+    Returns:
+        (absolute_path, filename)
+    """
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if result is None:
+        raise RuntimeError("Generation returned None")
+    
+    video_tensor = result.get("x")
+    if video_tensor is None:
+        raise RuntimeError("No video tensor in result")
+    
+    # Add batch dimension if needed [C,F,H,W] -> [1,C,F,H,W]
+    if torch.is_tensor(video_tensor) and video_tensor.ndim == 4:
+        video_tensor = video_tensor.unsqueeze(0)
+    
+    # Generate filename
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    if prompt:
+        prompt_preview = sanitize_file_name(prompt[:50])
+        filename = f"ltx2_{timestamp}_{prompt_preview}_seed{seed}.mp4"
+    else:
+        filename = f"ltx2_{timestamp}_seed{seed}.mp4"
+    
+    if not filename.endswith(".mp4"):
+        filename += ".mp4"
+    
+    output_path = os.path.join(output_dir, filename)
+    
+    # Save video
+    print(f"  Saving: {output_path}")
+    saved_path = save_video_file(
+        tensor=video_tensor,
+        save_file=output_path,
+        fps=fps,
+        nrow=1,
+        normalize=True,
+        value_range=(-1, 1),
+        codec_type='libx264_8',
+        container='mp4'
+    )
+    
+    return saved_path, filename
+
+
+def _select_attention(supported_modes: list) -> str:
+    """Select best available attention mode"""
+    for mode in ["flash", "sage2", "sage", "sdpa"]:
+        if mode in supported_modes:
+            return mode
+    return "sdpa"
