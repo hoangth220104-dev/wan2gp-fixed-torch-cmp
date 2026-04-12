@@ -64,6 +64,9 @@ def generate_video(
     print(f"  Steps: {num_inference_steps}")
     print(f"  Guidance: {guidance_scale}")
     print(f"  Seed: {seed}")
+    print(f"  Image Start: {image_start_path if image_start_path else 'None'}")
+    print(f"  Image End: {image_end_path if image_end_path else 'None'}")
+    print(f"  Audio Guide: {audio_guide_path if audio_guide_path else 'None'}")
     
     # Load images if provided
     image_start = Image.open(image_start_path).convert("RGB") if image_start_path else None
@@ -72,15 +75,17 @@ def generate_video(
     # Load audio if provided
     input_waveform = None
     input_waveform_sample_rate = None
-    
+
     if audio_guide_path:
         import soundfile as sf
         import librosa
+        print(f"  Loading audio from: {audio_guide_path}")
         audio_data, sr = librosa.load(audio_guide_path, sr=None, mono=False)
         if audio_data.ndim == 1:
             audio_data = audio_data[np.newaxis, :]
         input_waveform = audio_data
         input_waveform_sample_rate = sr
+        print(f"  Audio loaded: shape={audio_data.shape}, sr={sr}")
     
     # Setup progress callback
     def callback(step, preview_latents, is_init_call=False, **kwargs):
@@ -111,6 +116,12 @@ def generate_video(
     
     # Generate
     print("\n  Generating...")
+    print(f"  Passing to model:")
+    print(f"    image_start: {'Yes (PIL Image)' if image_start is not None else 'None'}")
+    print(f"    image_end: {'Yes (PIL Image)' if image_end is not None else 'None'}")
+    print(f"    input_waveform: {'Yes' if input_waveform is not None else 'None'}")
+    print(f"    input_waveform_sample_rate: {input_waveform_sample_rate}")
+    
     start_time = time.time()
     
     result = model_manager.generate(

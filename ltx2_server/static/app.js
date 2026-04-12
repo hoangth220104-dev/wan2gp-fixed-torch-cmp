@@ -319,7 +319,17 @@ function setupFormSubmission() {
         e.preventDefault();
 
         const formData = new FormData(elements.form);
-        
+
+        // Debug: log what's being sent
+        console.log('[Form Submit] Sending form data:');
+        for (let [key, value] of formData.entries()) {
+            if (value instanceof File) {
+                console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`);
+            } else {
+                console.log(`  ${key}: ${value}`);
+            }
+        }
+
         // Remove empty values
         for (let [key, value] of formData.entries()) {
             if (value === '' || value === null) {

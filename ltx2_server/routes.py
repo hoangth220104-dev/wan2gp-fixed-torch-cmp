@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from PIL import Image
 
 from ltx2_server.models import (
     TaskResponse,
@@ -20,6 +21,28 @@ from ltx2_server.generation import generate_video, save_video_result
 
 
 router = APIRouter(prefix="/api/v1")
+
+
+# ===== Validation Helpers =====
+
+def is_valid_image(file_path: str) -> bool:
+    """Check if file is a valid image"""
+    try:
+        with Image.open(file_path) as img:
+            img.verify()
+        return True
+    except Exception:
+        return False
+
+
+def is_valid_audio(file_path: str) -> bool:
+    """Check if file is a valid audio file"""
+    try:
+        import soundfile as sf
+        info = sf.info(file_path)
+        return info.channels > 0
+    except Exception:
+        return False
 
 # Global instances (injected at startup)
 model_manager: ModelManager
@@ -93,7 +116,22 @@ async def generate_video_endpoint(
     image_start_path = await _save_upload(image_start, upload_dir)
     image_end_path = await _save_upload(image_end, upload_dir)
     audio_guide_path = await _save_upload(audio_guide, upload_dir)
-    
+
+    # Validate uploaded files
+    if image_start_path and not is_valid_image(image_start_path):
+        raise HTTPException(status_code=400, detail="Invalid image file for start image")
+    if image_end_path and not is_valid_image(image_end_path):
+        raise HTTPException(status_code=400, detail="Invalid image file for end image")
+    if audio_guide_path and not is_valid_audio(audio_guide_path):
+        raise HTTPException(status_code=400, detail="Invalid audio file")
+
+    # Debug logging
+    print(f"\n[API] Received generation request:")
+    print(f"  Prompt: {prompt[:80]}...")
+    print(f"  image_start: {image_start_path}")
+    print(f"  image_end: {image_end_path}")
+    print(f"  audio_guide: {audio_guide_path}")
+
     # Build params
     params = {
         "prompt": prompt,
@@ -255,12 +293,34 @@ async def _save_upload(file: Optional[UploadFile], upload_dir: Path) -> Optional
     """Save uploaded file and return path"""
     if not file:
         return None
-    
-    filename = f"{uuid.uuid4()}_{file.filename}"
+
+    # Handle missing or empty filename
+    original_filename = file.filename or ""
+    if original_filename.strip():
+        filename = f"{uuid.uuid4()}_{original_filename}"
+    else:
+        # Generate a name based on content type
+        content_type = file.content_type or "application/octet-stream"
+        ext = content_type.split("/")[-1] if "/" in content_type else "bin"
+        # Map common content types to file extensions
+        ext_map = {
+            "jpeg": "jpg",
+            "png": "png",
+            "gif": "gif",
+            "webp": "webp",
+            "mpeg": "mp3",
+            "mp4": "mp4",
+            "wav": "wav",
+            "octet-stream": "bin",
+        }
+        ext = ext_map.get(ext, ext)
+        filename = f"{uuid.uuid4()}.{ext}"
+
     file_path = upload_dir / filename
-    
+
     content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
-    
+
+    print(f"  Saved upload: {filename} ({len(content)} bytes)")
     return str(file_path)
