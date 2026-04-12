@@ -54,6 +54,8 @@ def set_config(config: ServerConfig):
     _config = config
     os.environ["LTX2_SERVER_CONFIG"] = json.dumps({
         "model_type": config.model_type,
+        "transformer_path": config.transformer_path,
+        "gemma_path": config.gemma_path,
         "profile": config.profile,
         "vram_safety_coefficient": config.vram_safety_coefficient,
         "output_dir": config.output_dir,

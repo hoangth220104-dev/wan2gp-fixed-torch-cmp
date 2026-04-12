@@ -37,11 +37,7 @@ class ModelManager:
         print(f"Loading LTX-2 model: {config.model_type}")
         start_time = time.time()
         
-        self.ltx2_instance, self.offload_obj, self.model_def = _load_ltx2_model(
-            model_type=config.model_type,
-            profile=config.profile,
-            vram_safety_coefficient=config.vram_safety_coefficient,
-        )
+        self.ltx2_instance, self.offload_obj, self.model_def = _load_ltx2_model(config)
         self.model_type = config.model_type
         
         load_time = time.time() - start_time
@@ -66,55 +62,78 @@ class ModelManager:
 
 
 def _load_ltx2_model(
-    model_type: str,
-    profile: int = -1,
-    vram_safety_coefficient: float = 0.85,
+    config: ServerConfig,
 ) -> Tuple[LTX2, Any, dict]:
     """Load LTX-2 model and return (instance, offload_obj, model_def)"""
     
+    model_type = config.model_type
+    profile = config.profile
+    vram_safety_coefficient = config.vram_safety_coefficient
+    transformer_path = config.transformer_path
+    gemma_path = config.gemma_path
+    
     family_handler = ltx2_handler.family_handler
     model_def = family_handler.query_model_def(model_type, {})
-    
+
     torch_dtype = torch.bfloat16
     vae_dtype = torch.float32
-    
+
     # Resolve Gemma path
-    gemma_path = model_def.get("text_encoder_folder", "gemma-3-12b-it-qat-q4_0-unquantized")
-    
-    if os.path.isdir(gemma_path):
-        safetensors_files = list(Path(gemma_path).glob("*.safetensors"))
-        if not safetensors_files:
-            raise FileNotFoundError(f"No safetensors file found in {gemma_path}")
-        if len(safetensors_files) > 1:
-            for f in safetensors_files:
-                if "quanto" not in f.name.lower():
-                    safetensors_files = [f]
-                    break
-            else:
-                safetensors_files = [safetensors_files[0]]
-        gemma_checkpoint_path = str(safetensors_files[0])
+    if gemma_path and gemma_path.strip():
+        # Use explicitly configured path
+        final_gemma_path = gemma_path
+        if not os.path.exists(final_gemma_path):
+            raise FileNotFoundError(f"Configured Gemma path not found: {final_gemma_path}")
+        gemma_checkpoint_path = final_gemma_path
+        print(f"  Gemma (configured): {final_gemma_path}")
     else:
-        if not os.path.exists(gemma_path):
-            raise FileNotFoundError(f"Gemma path not found: {gemma_path}")
-        gemma_checkpoint_path = gemma_path
-    
-    print(f"  Gemma: {gemma_path}")
+        # Auto-detect from model definition
+        auto_path = model_def.get("text_encoder_folder", "gemma-3-12b-it-qat-q4_0-unquantized")
+        final_gemma_path = auto_path
+        
+        if os.path.isdir(final_gemma_path):
+            safetensors_files = list(Path(final_gemma_path).glob("*.safetensors"))
+            if not safetensors_files:
+                raise FileNotFoundError(f"No safetensors file found in {final_gemma_path}")
+            if len(safetensors_files) > 1:
+                for f in safetensors_files:
+                    if "quanto" not in f.name.lower():
+                        safetensors_files = [f]
+                        break
+                else:
+                    safetensors_files = [safetensors_files[0]]
+            gemma_checkpoint_path = str(safetensors_files[0])
+            print(f"  Gemma (auto-detected): {final_gemma_path}")
+            print(f"  Checkpoint: {gemma_checkpoint_path}")
+        else:
+            if not os.path.exists(final_gemma_path):
+                raise FileNotFoundError(f"Gemma path not found: {final_gemma_path}")
+            gemma_checkpoint_path = final_gemma_path
+            print(f"  Gemma (auto-detected): {final_gemma_path}")
+
+    print(f"  Gemma: {final_gemma_path}")
     print(f"  Checkpoint: {gemma_checkpoint_path}")
-    
+
     # Resolve checkpoint paths
     checkpoint_paths = _resolve_multi_file_paths(model_def, model_type)
-    
-    if checkpoint_paths.get("transformer") is None:
+
+    # Override transformer path if explicitly configured
+    if transformer_path and transformer_path.strip():
+        checkpoint_paths["transformer"] = [transformer_path]
+        print(f"  Transformer (configured): {transformer_path}")
+    elif checkpoint_paths.get("transformer") is None:
+        # Try auto-detection
         try:
-            transformer_path = fl.locate_file(f"{model_type}.safetensors")
-            if transformer_path:
-                checkpoint_paths["transformer"] = [transformer_path]
+            auto_transformer_path = fl.locate_file(f"{model_type}.safetensors")
+            if auto_transformer_path:
+                checkpoint_paths["transformer"] = [auto_transformer_path]
+                print(f"  Transformer (auto-detected): {auto_transformer_path}")
         except Exception:
             pass
-    
+
     if checkpoint_paths.get("transformer") is None:
-        raise FileNotFoundError(f"Transformer checkpoint not found for {model_type}")
-    
+        raise FileNotFoundError(f"Transformer checkpoint not found for {model_type}. Please set transformer_path in config.")
+
     print(f"  Transformer: {checkpoint_paths['transformer']}")
     
     # Initialize model

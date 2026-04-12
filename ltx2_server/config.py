@@ -8,9 +8,14 @@ from dataclasses import dataclass, field
 @dataclass
 class ServerConfig:
     """Server configuration"""
+    # Model configuration
     model_type: str = "ltx2_22B"
-    profile: int = 1
+    transformer_path: str = ""  # Path to transformer safetensors file(s)
+    gemma_path: str = ""  # Path to Gemma text encoder safetensors file
+    profile: int = -1
     vram_safety_coefficient: float = 0.85
+    
+    # Server configuration
     output_dir: str = "output"
     host: str = "0.0.0.0"
     port: int = 8000

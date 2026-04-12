@@ -254,12 +254,54 @@ while True:
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `--model_type` | Model variant: ltx2_19B or ltx2_22B | ltx2_22B |
+| `--transformer_path` | Path to transformer safetensors file | Auto-detect |
+| `--gemma_path` | Path to Gemma text encoder file | Auto-detect |
 | `--profile` | Memory profile (-1 to 4) | -1 |
 | `--vram_safety_coefficient` | VRAM safety coefficient (0.0-0.95) | 0.85 |
 | `--output_dir` | Output directory for videos | output |
 | `--host` | Server host | 0.0.0.0 |
 | `--port` | Server port | 8000 |
 | `--reload` | Enable auto-reload (development) | False |
+
+## Configuration
+
+### Using Config Files
+
+You can configure the server via environment variables or the `ServerConfig` class in `config.py`:
+
+```python
+from ltx2_server.config import ServerConfig
+
+config = ServerConfig(
+    model_type="ltx2_22B",
+    transformer_path="/path/to/ltx2_22B.safetensors",  # Optional
+    gemma_path="/path/to/gemma-3-12b-it.safetensors",  # Optional
+    profile=1,
+    vram_safety_coefficient=0.85,
+    output_dir="output",
+)
+```
+
+### Auto-Detection vs Explicit Paths
+
+**Auto-Detection (Default):**
+- Leave `transformer_path` and `gemma_path` empty
+- Server will auto-detect from model definitions
+- Works when models are in standard locations
+
+**Explicit Paths:**
+- Set paths to override auto-detection
+- Useful for custom model locations or fine-tuned models
+- Both CLI and programmatic configuration supported
+
+**CLI Example:**
+```bash
+python ltx2_server.py \
+  --model_type ltx2_22B \
+  --transformer_path /models/custom/ltx2_22B.safetensors \
+  --gemma_path /models/custom/gemma.safetensors \
+  --port 8000
+```
 
 ## Limitations
 

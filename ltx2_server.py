@@ -30,6 +30,9 @@ Examples:
   # Start with default settings
   python ltx2_server.py
 
+  # Use custom model paths
+  python ltx2_server.py --transformer_path /path/to/ltx2_22B.safetensors --gemma_path /path/to/gemma.safetensors
+
   # Use ltx2_19B model on port 8001
   python ltx2_server.py --model_type ltx2_19B --port 8001
 
@@ -47,6 +50,18 @@ Examples:
         default="ltx2_22B",
         choices=["ltx2_19B", "ltx2_22B"],
         help="LTX-2 model variant (default: ltx2_22B)",
+    )
+    parser.add_argument(
+        "--transformer_path",
+        type=str,
+        default="",
+        help="Path to transformer safetensors file (overrides auto-detection)",
+    )
+    parser.add_argument(
+        "--gemma_path",
+        type=str,
+        default="",
+        help="Path to Gemma text encoder safetensors file (overrides auto-detection)",
     )
     parser.add_argument(
         "--profile",
@@ -104,6 +119,8 @@ def main():
     # Create config
     config = ServerConfig(
         model_type=args.model_type,
+        transformer_path=args.transformer_path,
+        gemma_path=args.gemma_path,
         profile=args.profile,
         vram_safety_coefficient=args.vram_safety_coefficient,
         output_dir=args.output_dir,
