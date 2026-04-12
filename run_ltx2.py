@@ -489,11 +489,10 @@ def generate_video(
     return result, seed
 
 
-def save_results(result, output_dir, output_filename=None, save_audio=False, seed=None, prompt=None):
-    """Save generated video and audio."""
+def save_results(result, output_dir, output_filename=None, save_audio=False, seed=None, prompt=None, fps=24.0):
+    """Save generated video and audio using the same save_video function as wgp.py."""
 
-    import imageio
-    from imageio_ffmpeg import get_ffmpeg_exe
+    from shared.utils.audio_video import save_video as save_video_file
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -507,64 +506,16 @@ def save_results(result, output_dir, output_filename=None, save_audio=False, see
         print("ERROR: No video tensor in result")
         return None, None
 
-    # Convert tensor to numpy
+    print(f"Video tensor shape (raw): {video_tensor.shape}")
+    print(f"Video tensor dtype: {video_tensor.dtype}")
+
+    # LTX-2 output format: [C, F, H, W]
+    # save_video expects [B, C, F, H, W] (5D tensor)
     if torch.is_tensor(video_tensor):
-        video_tensor = video_tensor.float().cpu().numpy()
-
-    print(f"Video tensor shape before conversion: {video_tensor.shape}")
-
-    # Handle different tensor formats
-    # Expected output: [F, H, W, C] where C is 1, 3, or 4
-    if video_tensor.ndim == 5:
-        # Could be [B, C, F, H, W] or [C, F, H, W, B] etc
-        if video_tensor.shape[1] in [1, 3, 4]:
-            # Format: [B, C, F, H, W]
-            video_tensor = video_tensor[0]  # Remove batch dim -> [C, F, H, W]
-            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # -> [F, H, W, C]
-        elif video_tensor.shape[0] in [1, 3, 4]:
-            # Format: [C, F, H, W, B]
-            video_tensor = video_tensor[:, :, :, :, 0] if video_tensor.shape[4] > 1 else video_tensor[:, :, :, :, 0]
-            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # -> [F, H, W, C]
-    elif video_tensor.ndim == 4:
-        # Could be [C, F, H, W] or [F, H, W, C]
-        if video_tensor.shape[0] in [1, 3, 4]:
-            # Format: [C, F, H, W]
-            video_tensor = np.transpose(video_tensor, (1, 2, 3, 0))  # -> [F, H, W, C]
-        # else already [F, H, W, C]
-
-    print(f"Video tensor shape after conversion: {video_tensor.shape}")
-
-    # Ensure correct shape [F, H, W, C]
-    if video_tensor.ndim != 4:
-        print(f"ERROR: Unexpected tensor dimensions: {video_tensor.ndim}")
-        return None, None
-    
-    # Check channels
-    num_channels = video_tensor.shape[-1]
-    if num_channels not in [1, 2, 3, 4]:
-        print(f"WARNING: Unexpected number of channels: {num_channels}. Attempting to fix...")
-        # Try to handle unusual channel counts
-        if num_channels > 4:
-            # Take first 3 channels as RGB
-            video_tensor = video_tensor[:, :, :, :3]
-            num_channels = 3
-        elif num_channels == 2:
-            # Duplicate to make 3 channels
-            video_tensor = np.repeat(video_tensor, 3, axis=-1)
-            num_channels = 3
-
-    # Normalize to [0, 255]
-    if video_tensor.dtype in [np.float16, np.float32, np.float64]:
-        video_tensor = np.clip(video_tensor, -1.0, 1.0)
-        video_tensor = ((video_tensor + 1.0) * 127.5).astype(np.uint8)
-
-    # Remove alpha channel if present
-    if video_tensor.shape[-1] == 4:
-        video_tensor = video_tensor[..., :3]
-    elif video_tensor.shape[-1] == 1:
-        video_tensor = np.repeat(video_tensor, 3, axis=-1)
-    
-    print(f"Final video shape: {video_tensor.shape}")
+        if video_tensor.ndim == 4:
+            # Add batch dimension: [C, F, H, W] -> [1, C, F, H, W]
+            video_tensor = video_tensor.unsqueeze(0)
+            print(f"Video tensor shape (after unsqueeze): {video_tensor.shape}")
 
     # Generate filename
     if output_filename is None:
@@ -574,27 +525,32 @@ def save_results(result, output_dir, output_filename=None, save_audio=False, see
             output_filename = f"ltx2_{timestamp}_{prompt_preview}_seed{seed}.mp4"
         else:
             output_filename = f"ltx2_{timestamp}_seed{seed}.mp4"
-    
+
     if not output_filename.endswith(".mp4"):
         output_filename += ".mp4"
-    
+
     output_path = os.path.join(output_dir, output_filename)
-    
-    # Save video
+
+    # Save video using the same function as wgp.py
     print(f"Saving video to: {output_path}")
     try:
-        fps = 24  # Default, adjust as needed
-        imageio.mimwrite(
-            output_path,
-            list(video_tensor),
+        # save_video returns the file path
+        saved_path = save_video_file(
+            tensor=video_tensor,
+            save_file=output_path,
             fps=fps,
-            quality=8,
-            macro_block_size=1,
-            ffmpeg_log_level="error"
+            nrow=1,  # Single video, not a grid
+            normalize=True,
+            value_range=(-1, 1),  # LTX-2 outputs in [-1, 1] range
+            codec_type='libx264_8',  # Standard H.264 codec
+            container='mp4'
         )
         print(f"Video saved successfully!")
+        output_path = saved_path
     except Exception as e:
         print(f"ERROR saving video: {e}")
+        import traceback
+        traceback.print_exc()
         output_path = None
     
     # Save audio if requested
