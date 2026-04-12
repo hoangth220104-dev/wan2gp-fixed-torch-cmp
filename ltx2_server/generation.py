@@ -9,7 +9,11 @@ from typing import Optional, Dict, Any, Tuple
 from PIL import Image
 
 from shared.utils.utils import sanitize_file_name
-from shared.utils.audio_video import save_video as save_video_file
+from shared.utils.audio_video import (
+    save_video as save_video_file,
+    combine_and_concatenate_video_with_audio_tracks,
+    write_wav_file,
+)
 from shared.attention import get_supported_attention_modes
 from mmgp import offload
 
@@ -147,25 +151,25 @@ def save_video_result(
     fps: float = 24.0,
 ) -> Tuple[str, str]:
     """
-    Save generated video to disk.
-    
+    Save generated video to disk, muxing audio if present.
+
     Returns:
         (absolute_path, filename)
     """
-    
+
     os.makedirs(output_dir, exist_ok=True)
-    
+
     if result is None:
         raise RuntimeError("Generation returned None")
-    
+
     video_tensor = result.get("x")
     if video_tensor is None:
         raise RuntimeError("No video tensor in result")
-    
+
     # Add batch dimension if needed [C,F,H,W] -> [1,C,F,H,W]
     if torch.is_tensor(video_tensor) and video_tensor.ndim == 4:
         video_tensor = video_tensor.unsqueeze(0)
-    
+
     # Generate filename
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     if prompt:
@@ -173,26 +177,82 @@ def save_video_result(
         filename = f"ltx2_{timestamp}_{prompt_preview}_seed{seed}.mp4"
     else:
         filename = f"ltx2_{timestamp}_seed{seed}.mp4"
-    
+
     if not filename.endswith(".mp4"):
         filename += ".mp4"
-    
+
     output_path = os.path.join(output_dir, filename)
-    
-    # Save video
-    print(f"  Saving: {output_path}")
-    saved_path = save_video_file(
-        tensor=video_tensor,
-        save_file=output_path,
-        fps=fps,
-        nrow=1,
-        normalize=True,
-        value_range=(-1, 1),
-        codec_type='libx264_8',
-        container='mp4'
-    )
-    
-    return saved_path, filename
+
+    # Check if result contains audio
+    audio_data = result.get("audio")
+    audio_sampling_rate = result.get("audio_sampling_rate", 44100)
+    has_audio = audio_data is not None
+
+    if has_audio:
+        # Save video without audio first (temp file)
+        print(f"  Saving video (temp): {output_path}")
+        temp_path = output_path.rsplit('.', 1)[0] + "_tmp.mp4"
+        save_video_file(
+            tensor=video_tensor,
+            save_file=temp_path,
+            fps=fps,
+            nrow=1,
+            normalize=True,
+            value_range=(-1, 1),
+            codec_type='libx264_8',
+            container='mp4'
+        )
+
+        # Save audio to temp wav file
+        audio_temp_path = output_path.rsplit('.', 1)[0] + "_audio.wav"
+        print(f"  Saving audio (temp): {audio_temp_path}")
+
+        # Handle audio data format
+        audio_np = audio_data
+        if audio_np.ndim == 2:
+            # If shape is (1, T) or (2, T), transpose to (T, 1) or (T, 2)
+            if audio_np.shape[0] in (1, 2) and audio_np.shape[1] > audio_np.shape[0]:
+                audio_np = audio_np.T
+
+        write_wav_file(audio_temp_path, audio_np, audio_sampling_rate)
+
+        # Mux audio into video
+        print(f"  Muxing audio into video...")
+        combine_and_concatenate_video_with_audio_tracks(
+            save_path_tmp=output_path,
+            video_path=temp_path,
+            source_audio_tracks=[],
+            new_audio_tracks=[audio_temp_path],
+            source_audio_duration=0,
+            audio_sampling_rate=audio_sampling_rate,
+            new_audio_from_start=True,
+            source_audio_metadata=None,
+            audio_codec_key="aac_128",
+            verbose=False,
+        )
+
+        # Clean up temp files
+        if Path(temp_path).exists():
+            Path(temp_path).unlink()
+        if Path(audio_temp_path).exists():
+            Path(audio_temp_path).unlink()
+
+        print(f"  Video with audio saved: {output_path}")
+    else:
+        # Save video without audio
+        print(f"  Saving: {output_path}")
+        output_path = save_video_file(
+            tensor=video_tensor,
+            save_file=output_path,
+            fps=fps,
+            nrow=1,
+            normalize=True,
+            value_range=(-1, 1),
+            codec_type='libx264_8',
+            container='mp4'
+        )
+
+    return output_path, filename
 
 
 def _select_attention(supported_modes: list) -> str:

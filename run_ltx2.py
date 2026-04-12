@@ -492,7 +492,11 @@ def generate_video(
 def save_results(result, output_dir, output_filename=None, save_audio=False, seed=None, prompt=None, fps=24.0):
     """Save generated video and audio using the same save_video function as wgp.py."""
 
-    from shared.utils.audio_video import save_video as save_video_file
+    from shared.utils.audio_video import (
+        save_video as save_video_file,
+        combine_and_concatenate_video_with_audio_tracks,
+        write_wav_file,
+    )
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -531,45 +535,112 @@ def save_results(result, output_dir, output_filename=None, save_audio=False, see
 
     output_path = os.path.join(output_dir, output_filename)
 
-    # Save video using the same function as wgp.py
-    print(f"Saving video to: {output_path}")
-    try:
-        # save_video returns the file path
-        saved_path = save_video_file(
-            tensor=video_tensor,
-            save_file=output_path,
-            fps=fps,
-            nrow=1,  # Single video, not a grid
-            normalize=True,
-            value_range=(-1, 1),  # LTX-2 outputs in [-1, 1] range
-            codec_type='libx264_8',  # Standard H.264 codec
-            container='mp4'
-        )
-        print(f"Video saved successfully!")
-        output_path = saved_path
-    except Exception as e:
-        print(f"ERROR saving video: {e}")
-        import traceback
-        traceback.print_exc()
-        output_path = None
-    
-    # Save audio if requested
+    # Check if result contains audio
+    audio_data = result.get("audio")
+    audio_sampling_rate = result.get("audio_sampling_rate", 44100)
+    has_audio = audio_data is not None
+
+    if has_audio:
+        # Save video without audio first (temp file)
+        temp_path = output_path.rsplit('.', 1)[0] + "_tmp.mp4"
+        print(f"Saving video (temp): {temp_path}")
+        try:
+            save_video_file(
+                tensor=video_tensor,
+                save_file=temp_path,
+                fps=fps,
+                nrow=1,
+                normalize=True,
+                value_range=(-1, 1),
+                codec_type='libx264_8',
+                container='mp4'
+            )
+            print(f"Video saved successfully!")
+        except Exception as e:
+            print(f"ERROR saving video: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None
+
+        # Save audio to temp wav file
+        audio_temp_path = output_path.rsplit('.', 1)[0] + "_audio.wav"
+        print(f"Saving audio (temp): {audio_temp_path}")
+
+        audio_np = audio_data
+        if audio_np.ndim == 2:
+            if audio_np.shape[0] in (1, 2) and audio_np.shape[1] > audio_np.shape[0]:
+                audio_np = audio_np.T
+
+        write_wav_file(audio_temp_path, audio_np, audio_sampling_rate)
+
+        # Mux audio into video
+        print(f"  Muxing audio into video...")
+        try:
+            combine_and_concatenate_video_with_audio_tracks(
+                save_path_tmp=output_path,
+                video_path=temp_path,
+                source_audio_tracks=[],
+                new_audio_tracks=[audio_temp_path],
+                source_audio_duration=0,
+                audio_sampling_rate=audio_sampling_rate,
+                new_audio_from_start=True,
+                source_audio_metadata=None,
+                audio_codec_key="aac_128",
+                verbose=False,
+            )
+            print(f"Video with audio saved: {output_path}")
+        except Exception as e:
+            print(f"ERROR muxing audio: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fall back to video-only
+            output_path = temp_path
+
+        # Clean up temp files
+        if Path(temp_path).exists():
+            Path(temp_path).unlink()
+        if Path(audio_temp_path).exists():
+            Path(audio_temp_path).unlink()
+
+    else:
+        # Save video without audio
+        print(f"Saving video to: {output_path}")
+        try:
+            saved_path = save_video_file(
+                tensor=video_tensor,
+                save_file=output_path,
+                fps=fps,
+                nrow=1,
+                normalize=True,
+                value_range=(-1, 1),
+                codec_type='libx264_8',
+                container='mp4'
+            )
+            print(f"Video saved successfully!")
+            output_path = saved_path
+        except Exception as e:
+            print(f"ERROR saving video: {e}")
+            import traceback
+            traceback.print_exc()
+            output_path = None
+
+    # Save separate audio file if requested (in addition to muxed audio)
     audio_path = None
     if save_audio and result.get("audio") is not None:
         audio_np = result["audio"]
         sample_rate = result.get("audio_sampling_rate", 44100)
-        
+
         if audio_np.ndim == 2:
             if audio_np.shape[0] in (1, 2) and audio_np.shape[1] > audio_np.shape[0]:
                 audio_np = audio_np.T
-        
+
         audio_filename = output_filename.replace(".mp4", "_audio.wav") if output_filename else "audio.wav"
         audio_path = os.path.join(output_dir, audio_filename)
-        
+
         import soundfile as sf
         sf.write(audio_path, audio_np.T, sample_rate)
         print(f"Audio saved to: {audio_path}")
-    
+
     return output_path, audio_path
 
 
