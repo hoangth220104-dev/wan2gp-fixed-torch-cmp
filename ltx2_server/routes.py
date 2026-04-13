@@ -294,6 +294,14 @@ async def _save_upload(file: Optional[UploadFile], upload_dir: Path) -> Optional
     if not file:
         return None
 
+    # Read content first to check if it's actually a file
+    content = await file.read()
+
+    # If the file is empty (0 bytes), skip it entirely
+    if len(content) == 0:
+        print(f"  Skipping empty upload: {file.filename or 'unknown'}")
+        return None
+
     # Handle missing or empty filename
     original_filename = file.filename or ""
     if original_filename.strip():
@@ -318,7 +326,6 @@ async def _save_upload(file: Optional[UploadFile], upload_dir: Path) -> Optional
 
     file_path = upload_dir / filename
 
-    content = await file.read()
     with open(file_path, "wb") as f:
         f.write(content)
 

@@ -321,19 +321,37 @@ function setupFormSubmission() {
         const formData = new FormData(elements.form);
 
         // Debug: log what's being sent
-        console.log('[Form Submit] Sending form data:');
+        console.log('[Form Submit] Raw form data before cleanup:');
+        for (let [key, value] of formData.entries()) {
+            if (value instanceof File) {
+                console.log(`  ${key}: File(name="${value.name}", size=${value.size}, type="${value.type}")`);
+            } else {
+                console.log(`  ${key}: "${value}"`);
+            }
+        }
+
+        // Remove empty values and empty files
+        const keysToRemove = [];
+        for (let [key, value] of formData.entries()) {
+            if (value === '' || value === null) {
+                keysToRemove.push(key);
+            }
+            if (value instanceof File) {
+                // Remove files with no name and no size (empty file inputs)
+                if (value.name === '' && value.size === 0) {
+                    keysToRemove.push(key);
+                    console.log(`  Removing empty file: ${key}`);
+                }
+            }
+        }
+        keysToRemove.forEach(key => formData.delete(key));
+
+        console.log('[Form Submit] Form data after cleanup:');
         for (let [key, value] of formData.entries()) {
             if (value instanceof File) {
                 console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`);
             } else {
                 console.log(`  ${key}: ${value}`);
-            }
-        }
-
-        // Remove empty values
-        for (let [key, value] of formData.entries()) {
-            if (value === '' || value === null) {
-                formData.delete(key);
             }
         }
 
