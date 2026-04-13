@@ -122,6 +122,22 @@
                                     <button type="button" class="remove-btn" onclick="removeUpload('audio_guide')">&times;</button>
                                 </div>
                             </div>
+
+                            <div class="upload-box" id="inputVideoBox">
+                                <input type="file" id="input_video" name="input_video" accept="video/*" hidden>
+                                <label for="input_video" class="upload-label">
+                                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                    </svg>
+                                    <span>Continue Video</span>
+                                    <small>Upload video to extend/modify</small>
+                                </label>
+                                <div class="upload-preview" id="videoPreview" hidden>
+                                    <video id="videoPreviewPlayer" controls style="max-height: 150px; width: 100%;"></video>
+                                    <button type="button" class="remove-btn" onclick="removeUpload('input_video')">&times;</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -227,6 +243,53 @@
                                 </button>
                             </div>
                             <small>Leave empty for random seed</small>
+                        </div>
+                    </div>
+
+                    <!-- Strength Controls -->
+                    <div class="form-section">
+                        <h3 class="section-title">Source Control</h3>
+                        <div class="form-group">
+                            <label for="input_video_strength">Video Strength: <span id="videoStrengthValue">1.0</span></label>
+                            <input
+                                type="range"
+                                id="input_video_strength"
+                                name="input_video_strength"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value="1.0"
+                                oninput="document.getElementById('videoStrengthValue').textContent = this.value"
+                            >
+                            <small>How much the input video influences the output (0=ignore, 1=full)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="denoising_strength">Denoising Strength: <span id="denoisingStrengthValue">1.0</span></label>
+                            <input
+                                type="range"
+                                id="denoising_strength"
+                                name="denoising_strength"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value="1.0"
+                                oninput="document.getElementById('denoisingStrengthValue').textContent = this.value"
+                            >
+                            <small>When to start denoising (0=skip, 1=full generation)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="prefix_frames_count">Prefix Frames: <span id="prefixFramesValue">0</span></label>
+                            <input
+                                type="range"
+                                id="prefix_frames_count"
+                                name="prefix_frames_count"
+                                min="0"
+                                max="120"
+                                step="1"
+                                value="0"
+                                oninput="document.getElementById('prefixFramesValue').textContent = this.value"
+                            >
+                            <small>Number of frames from input video to keep as prefix</small>
                         </div>
                     </div>
 

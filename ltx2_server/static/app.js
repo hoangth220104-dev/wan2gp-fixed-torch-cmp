@@ -80,6 +80,7 @@ function setupFileUploads() {
         'image_start': { box: 'imageStartBox', preview: 'imageStartPreview', img: 'imageStartImg' },
         'image_end': { box: 'imageEndBox', preview: 'imageEndPreview', img: 'imageEndImg' },
         'audio_guide': { box: 'audioBox', preview: 'audioPreview' },
+        'input_video': { box: 'inputVideoBox', preview: 'videoPreview' },
     };
 
     Object.entries(uploads).forEach(([inputId, config]) => {
@@ -101,6 +102,10 @@ function setupFileUploads() {
                 reader.readAsDataURL(file);
             } else if (inputId === 'audio_guide') {
                 document.getElementById('audioFileName').textContent = file.name;
+            } else if (inputId === 'input_video') {
+                const videoPlayer = document.getElementById('videoPreviewPlayer');
+                const url = URL.createObjectURL(file);
+                videoPlayer.src = url;
             }
         });
     });
@@ -112,12 +117,22 @@ function removeUpload(inputId) {
         'image_start': { box: 'imageStartBox', preview: 'imageStartPreview' },
         'image_end': { box: 'imageEndBox', preview: 'imageEndPreview' },
         'audio_guide': { box: 'audioBox', preview: 'audioPreview' },
+        'input_video': { box: 'inputVideoBox', preview: 'videoPreview' },
     };
 
     const config = configs[inputId];
     input.value = '';
     document.getElementById(config.box).classList.remove('has-file');
     document.getElementById(config.preview).hidden = true;
+    
+    // Clear video player source if exists
+    if (inputId === 'input_video') {
+        const videoPlayer = document.getElementById('videoPreviewPlayer');
+        if (videoPlayer.src) {
+            URL.revokeObjectURL(videoPlayer.src);
+            videoPlayer.src = '';
+        }
+    }
 }
 
 // Make removeUpload globally accessible

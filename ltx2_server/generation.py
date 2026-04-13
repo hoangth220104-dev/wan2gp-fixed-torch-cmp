@@ -27,6 +27,7 @@ def generate_video(
     image_start_path: Optional[str] = None,
     image_end_path: Optional[str] = None,
     audio_guide_path: Optional[str] = None,
+    input_video_path: Optional[str] = None,
     width: int = 768,
     height: int = 512,
     num_frames: int = 121,
@@ -34,6 +35,9 @@ def generate_video(
     num_inference_steps: Optional[int] = None,
     guidance_scale: Optional[float] = None,
     seed: Optional[int] = None,
+    input_video_strength: float = 1.0,
+    denoising_strength: float = 1.0,
+    prefix_frames_count: int = 0,
     attention: Optional[str] = None,
     sliding_window_size: int = 481,
     sliding_window_overlap: int = 17,
@@ -66,11 +70,44 @@ def generate_video(
     print(f"  Seed: {seed}")
     print(f"  Image Start: {image_start_path if image_start_path else 'None'}")
     print(f"  Image End: {image_end_path if image_end_path else 'None'}")
+    print(f"  Input Video: {input_video_path if input_video_path else 'None'}")
     print(f"  Audio Guide: {audio_guide_path if audio_guide_path else 'None'}")
+    print(f"  Video Strength: {input_video_strength}")
+    print(f"  Denoising Strength: {denoising_strength}")
+    print(f"  Prefix Frames: {prefix_frames_count}")
     
     # Load images if provided
     image_start = Image.open(image_start_path).convert("RGB") if image_start_path else None
     image_end = Image.open(image_end_path).convert("RGB") if image_end_path else None
+
+    # Load input video if provided
+    input_video = None
+    if input_video_path:
+        print(f"  Loading input video from: {input_video_path}")
+        try:
+            # Use OpenCV to read video frames
+            import cv2
+            cap = cv2.VideoCapture(input_video_path)
+            frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames.append(frame)
+            cap.release()
+            
+            if frames:
+                # Convert to tensor [F, H, W, C]
+                import numpy as np
+                frames_np = np.array(frames).astype(np.float32) / 255.0 * 2.0 - 1.0  # Normalize to [-1, 1]
+                input_video = torch.from_numpy(frames_np)
+                print(f"  Video loaded: {len(frames)} frames, shape={input_video.shape}")
+            else:
+                print(f"  Warning: No frames extracted from video")
+        except Exception as e:
+            print(f"  Error loading video: {e}")
+            input_video = None
     
     # Load audio if provided
     input_waveform = None
@@ -119,8 +156,12 @@ def generate_video(
     print(f"  Passing to model:")
     print(f"    image_start: {'Yes (PIL Image)' if image_start is not None else 'None'}")
     print(f"    image_end: {'Yes (PIL Image)' if image_end is not None else 'None'}")
+    print(f"    input_video: {'Yes' if input_video is not None else 'None'}")
     print(f"    input_waveform: {'Yes' if input_waveform is not None else 'None'}")
     print(f"    input_waveform_sample_rate: {input_waveform_sample_rate}")
+    print(f"    input_video_strength: {input_video_strength}")
+    print(f"    denoising_strength: {denoising_strength}")
+    print(f"    prefix_frames_count: {prefix_frames_count}")
     
     start_time = time.time()
     
@@ -132,8 +173,8 @@ def generate_video(
         sampling_steps=num_inference_steps,
         guide_scale=guidance_scale,
         alt_guide_scale=1.0,
-        input_video=None,
-        prefix_frames_count=0,
+        input_video=input_video,
+        prefix_frames_count=prefix_frames_count,
         frame_num=num_frames,
         height=height,
         width=width,
@@ -146,6 +187,8 @@ def generate_video(
         audio_scale=1.0,
         sliding_window_size=sliding_window_size,
         sliding_window_overlap=sliding_window_overlap,
+        input_video_strength=input_video_strength,
+        denoising_strength=denoising_strength,
     )
     
     gen_time = time.time() - start_time
