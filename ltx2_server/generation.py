@@ -99,7 +99,6 @@ def generate_video(
             
             if frames:
                 # Convert to tensor [F, H, W, C]
-                import numpy as np
                 frames_np = np.array(frames).astype(np.float32) / 255.0 * 2.0 - 1.0  # Normalize to [-1, 1]
                 input_video = torch.from_numpy(frames_np)
                 print(f"  Video loaded: {len(frames)} frames, shape={input_video.shape}")
