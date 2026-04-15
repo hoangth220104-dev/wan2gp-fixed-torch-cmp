@@ -12,9 +12,10 @@ class ServerConfig:
     model_type: str = "ltx2_22B"
     transformer_path: str = ""  # Path to transformer safetensors file(s)
     gemma_path: str = ""  # Path to Gemma text encoder safetensors file
-    profile: int = -1
-    vram_safety_coefficient: float = 0.85
-    
+    lora_dir: str = ""  # Directory containing LoRA weights (auto-loaded on startup)
+    profile: int = 1
+    vram_safety_coefficient: float = 0.1
+
     # Server configuration
     output_dir: str = "output"
     host: str = "0.0.0.0"

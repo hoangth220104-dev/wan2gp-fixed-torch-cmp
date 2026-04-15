@@ -54,6 +54,24 @@ class ModelManager:
         # Initialize LoRA manager
         lora_manager.initialize(self.transformer, config.model_type)
         
+        # Auto-load LoRAs from directory if specified
+        if config.lora_dir and config.lora_dir.strip():
+            if os.path.isdir(config.lora_dir):
+                print(f"\nAuto-loading LoRAs from: {config.lora_dir}")
+                loaded_loras = lora_manager.load_loras_from_directory(
+                    directory=config.lora_dir,
+                    default_multiplier=1.0,
+                    activate=True
+                )
+                if loaded_loras:
+                    print(f"✓ Auto-loaded {len(loaded_loras)} LoRA(s)")
+                else:
+                    print("⚠ No LoRAs loaded from directory")
+            else:
+                print(f"⚠ LoRA directory not found: {config.lora_dir}")
+        else:
+            print("No LoRA directory specified, skipping auto-load")
+        
         load_time = time.time() - start_time
         print(f"✓ Model loaded in {load_time:.2f} seconds")
     

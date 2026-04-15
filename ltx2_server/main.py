@@ -56,6 +56,7 @@ def set_config(config: ServerConfig):
         "model_type": config.model_type,
         "transformer_path": config.transformer_path,
         "gemma_path": config.gemma_path,
+        "lora_dir": config.lora_dir,
         "profile": config.profile,
         "vram_safety_coefficient": config.vram_safety_coefficient,
         "output_dir": config.output_dir,

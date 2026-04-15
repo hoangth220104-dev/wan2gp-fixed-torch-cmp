@@ -159,6 +159,55 @@ class LoRAManager:
         for lora_path in list(self.active_loras):
             self.deactivate_lora(lora_path)
         print("All LoRAs deactivated")
+    
+    def load_loras_from_directory(
+        self,
+        directory: str,
+        default_multiplier: float = 1.0,
+        activate: bool = True
+    ) -> List[str]:
+        """
+        Load all LoRA files from a directory
+        
+        Args:
+            directory: Path to directory containing .safetensors LoRA files
+            default_multiplier: Default strength for all LoRAs
+            activate: Whether to activate loaded LoRAs
+            
+        Returns:
+            List of successfully loaded LoRA paths
+        """
+        if not self.is_initialized:
+            raise RuntimeError("LoRA Manager not initialized. Call initialize() first.")
+        
+        if not os.path.isdir(directory):
+            print(f"LoRA directory not found: {directory}")
+            return []
+        
+        # Find all .safetensors files
+        lora_files = list(Path(directory).glob("*.safetensors"))
+        if not lora_files:
+            print(f"No .safetensors files found in: {directory}")
+            return []
+        
+        print(f"\nLoading {len(lora_files)} LoRA(s) from: {directory}")
+        loaded = []
+        
+        for lora_file in sorted(lora_files):
+            lora_path = str(lora_file)
+            try:
+                success = self.load_lora(
+                    lora_path=lora_path,
+                    multiplier=default_multiplier,
+                    activate=activate
+                )
+                if success:
+                    loaded.append(lora_path)
+            except Exception as e:
+                print(f"✗ Failed to load {lora_file.name}: {e}")
+        
+        print(f"✓ Successfully loaded {len(loaded)}/{len(lora_files)} LoRA(s)\n")
+        return loaded
 
 
 # Global LoRA manager instance

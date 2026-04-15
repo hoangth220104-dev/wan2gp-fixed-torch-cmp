@@ -64,6 +64,12 @@ Examples:
         help="Path to Gemma text encoder safetensors file (overrides auto-detection)",
     )
     parser.add_argument(
+        "--lora_dir",
+        type=str,
+        default="",
+        help="Directory containing LoRA .safetensors files (auto-loaded on startup)",
+    )
+    parser.add_argument(
         "--profile",
         type=int,
         default=-1,
@@ -121,6 +127,7 @@ def main():
         model_type=args.model_type,
         transformer_path=args.transformer_path,
         gemma_path=args.gemma_path,
+        lora_dir=args.lora_dir,
         profile=args.profile,
         vram_safety_coefficient=args.vram_safety_coefficient,
         output_dir=args.output_dir,
