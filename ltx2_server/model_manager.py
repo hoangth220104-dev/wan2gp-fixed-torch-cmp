@@ -200,11 +200,22 @@ def _load_ltx2_model(
     
     # Setup offloading
     print("Configuring memory offloading...")
+    
+    # Declare which components can accept LoRA weights
+    # This is required for LoRA loading to work
+    loras_components = ["transformer"]
+    if ltx2_instance.model2 is not None:
+        loras_components.append("transformer2")
+    # Add text encoder components for LTX-2 (non-distilled)
+    if model_def.get("ltx2_pipeline", "") != "distilled":
+        loras_components.extend(["text_embedding_projection", "text_embeddings_connector"])
+    
     offload_obj = offload.profile(
         pipe,
         profile_no=profile if profile >= 0 else 2,
         quantizeTransformer=False,
         vram_safety_coefficient=vram_safety_coefficient,
+        loras=loras_components,  # Enable LoRA support
     )
     
     return ltx2_instance, offload_obj, model_def
