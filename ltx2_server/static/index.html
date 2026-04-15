@@ -1,446 +1,403 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LTX-2 Video Generator</title>
+    <meta name="description"
+        content="Generate AI-powered videos with LTX-2. Text-to-video, image-to-video, and audio-guided generation.">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=DM+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+        rel="stylesheet">
     <link rel="stylesheet" href="static/style.css">
     <link rel="icon" href="static/favicon.png" type="image/png">
 </head>
+
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    <h1>LTX-2 Video Generator</h1>
-                </div>
-                <div class="server-status">
-                    <span class="status-indicator" id="statusIndicator"></span>
-                    <span id="statusText">Connecting...</span>
-                </div>
+
+    <!-- ═══ Sidebar ═══ -->
+    <aside id="sidebar">
+        <div>
+            <a href="/" class="sidebar-logo">
+                <img src="static/logo.png" alt="LTX-2 logo" class="logo-img">
+                <span class="sidebar-label">LTX-2</span>
+            </a>
+
+            <nav class="sidebar-nav">
+                <a href="/" class="active">
+                    <span class="material-symbols-outlined nav-icon">movie</span>
+                    <span class="sidebar-label">Generate</span>
+                </a>
+                <a href="/docs" target="_blank">
+                    <span class="material-symbols-outlined nav-icon">api</span>
+                    <span class="sidebar-label">API Docs</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="sidebar-status">
+                <span class="status-dot" id="statusIndicator"></span>
+                <span class="sidebar-label status-text" id="statusText">Connecting...</span>
             </div>
         </div>
-    </header>
+    </aside>
 
-    <main class="container">
-        <div class="app-layout">
-            <!-- Left Panel: Generation Form -->
-            <section class="panel generation-panel">
-                <h2 class="panel-title">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 20h9"></path>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                    </svg>
-                    Generation Settings
-                </h2>
+    <!-- ═══ Main Content ═══ -->
+    <div class="main-content">
 
-                <form id="generationForm" class="generation-form">
-                    <!-- Prompt Section -->
-                    <div class="form-section">
-                        <h3 class="section-title">Prompt</h3>
-                        <div class="form-group">
-                            <label for="prompt" class="required">Prompt</label>
-                            <textarea 
-                                id="prompt" 
-                                name="prompt" 
-                                rows="3"
-                                placeholder="Describe the video you want to generate..."
-                                required
-                            ></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="negative_prompt">Negative Prompt</label>
-                            <input 
-                                type="text" 
-                                id="negative_prompt" 
-                                name="negative_prompt"
-                                placeholder="What to avoid..."
-                            >
-                        </div>
-                    </div>
+        <!-- Top Header -->
+        <header class="top-header">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <h1>Video Generator</h1>
+                <span class="header-badge">
+                    <span class="material-symbols-outlined" style="font-size:13px;">auto_awesome</span>
+                    LTX-2
+                </span>
+            </div>
+            <div class="header-actions">
+                <span id="modelInfo"
+                    style="font-size:11px;color:var(--outline);font-family:'JetBrains Mono',monospace;">—</span>
+            </div>
+        </header>
 
-                    <!-- Uploads Section -->
-                    <div class="form-section">
-                        <h3 class="section-title">Uploads (Optional)</h3>
-                        <div class="upload-grid">
-                            <div class="upload-box" id="imageStartBox">
-                                <input type="file" id="image_start" name="image_start" accept="image/*" hidden>
-                                <label for="image_start" class="upload-label">
-                                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                        <polyline points="21 15 16 10 5 21"></polyline>
-                                    </svg>
-                                    <span>Start Image</span>
-                                    <small>Click to upload</small>
-                                </label>
-                                <div class="upload-preview" id="imageStartPreview" hidden>
-                                    <img id="imageStartImg" src="" alt="Preview">
-                                    <button type="button" class="remove-btn" onclick="removeUpload('image_start')">&times;</button>
+        <!-- Scrollable Page Body -->
+        <div class="page-body">
+            <div class="app-layout">
+
+                <!-- ═══ Left Panel: Generation Form ═══ -->
+                <section class="panel">
+                    <div class="panel-inner">
+                        <h2 class="panel-title">
+                            <span class="material-symbols-outlined">tune</span>
+                            Generation Settings
+                        </h2>
+
+                        <form id="generationForm">
+
+                            <!-- Prompt Section -->
+                            <div class="form-section">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">edit_note</span>
+                                    Prompt
                                 </div>
-                            </div>
-                            
-                            <div class="upload-box" id="imageEndBox">
-                                <input type="file" id="image_end" name="image_end" accept="image/*" hidden>
-                                <label for="image_end" class="upload-label">
-                                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                        <polyline points="21 15 16 10 5 21"></polyline>
-                                    </svg>
-                                    <span>End Image</span>
-                                    <small>Click to upload</small>
-                                </label>
-                                <div class="upload-preview" id="imageEndPreview" hidden>
-                                    <img id="imageEndImg" src="" alt="Preview">
-                                    <button type="button" class="remove-btn" onclick="removeUpload('image_end')">&times;</button>
+                                <div class="form-group">
+                                    <label for="prompt" class="required">Text Prompt</label>
+                                    <textarea id="prompt" name="prompt" rows="3"
+                                        placeholder="Describe the video you want to generate..." required></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="negative_prompt">Negative Prompt</label>
+                                    <input type="text" id="negative_prompt" name="negative_prompt"
+                                        placeholder="What to avoid in the generation...">
                                 </div>
                             </div>
 
-                            <div class="upload-box" id="audioBox">
-                                <input type="file" id="audio_guide" name="audio_guide" accept="audio/*" hidden>
-                                <label for="audio_guide" class="upload-label">
-                                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M9 18V5l12-2v13"></path>
-                                        <circle cx="6" cy="18" r="3"></circle>
-                                        <circle cx="18" cy="16" r="3"></circle>
-                                    </svg>
-                                    <span>Audio Guide</span>
-                                    <small>Click to upload</small>
-                                </label>
-                                <div class="upload-preview" id="audioPreview" hidden>
-                                    <div class="audio-info">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M9 18V5l12-2v13"></path>
-                                        </svg>
-                                        <span id="audioFileName"></span>
+                            <!-- Uploads Section -->
+                            <div class="form-section">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">upload</span>
+                                    Media Inputs (Optional)
+                                </div>
+                                <div class="upload-grid">
+                                    <!-- Start Image -->
+                                    <div class="upload-box" id="imageStartBox">
+                                        <input type="file" id="image_start" name="image_start" accept="image/*" hidden>
+                                        <label for="image_start" class="upload-label">
+                                            <span class="material-symbols-outlined">image</span>
+                                            <span>Start Image</span>
+                                            <small>Click to upload</small>
+                                        </label>
+                                        <div class="upload-preview" id="imageStartPreview" hidden>
+                                            <img id="imageStartImg" src="" alt="Preview">
+                                            <button type="button" class="remove-btn"
+                                                onclick="removeUpload('image_start')">&times;</button>
+                                        </div>
                                     </div>
-                                    <button type="button" class="remove-btn" onclick="removeUpload('audio_guide')">&times;</button>
+
+                                    <!-- End Image -->
+                                    <div class="upload-box" id="imageEndBox">
+                                        <input type="file" id="image_end" name="image_end" accept="image/*" hidden>
+                                        <label for="image_end" class="upload-label">
+                                            <span class="material-symbols-outlined">image</span>
+                                            <span>End Image</span>
+                                            <small>Click to upload</small>
+                                        </label>
+                                        <div class="upload-preview" id="imageEndPreview" hidden>
+                                            <img id="imageEndImg" src="" alt="Preview">
+                                            <button type="button" class="remove-btn"
+                                                onclick="removeUpload('image_end')">&times;</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Audio Guide -->
+                                    <div class="upload-box" id="audioBox">
+                                        <input type="file" id="audio_guide" name="audio_guide" accept="audio/*" hidden>
+                                        <label for="audio_guide" class="upload-label">
+                                            <span class="material-symbols-outlined">music_note</span>
+                                            <span>Audio Guide</span>
+                                            <small>Click to upload</small>
+                                        </label>
+                                        <div class="upload-preview" id="audioPreview" hidden>
+                                            <div class="audio-info">
+                                                <span class="material-symbols-outlined">music_note</span>
+                                                <span id="audioFileName"></span>
+                                            </div>
+                                            <button type="button" class="remove-btn"
+                                                onclick="removeUpload('audio_guide')">&times;</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Continue Video -->
+                                    <div class="upload-box" id="inputVideoBox">
+                                        <input type="file" id="input_video" name="input_video" accept="video/*" hidden>
+                                        <label for="input_video" class="upload-label">
+                                            <span class="material-symbols-outlined">videocam</span>
+                                            <span>Continue Video</span>
+                                            <small>Upload to extend</small>
+                                        </label>
+                                        <div class="upload-preview" id="videoPreview" hidden>
+                                            <video id="videoPreviewPlayer" controls
+                                                style="max-height:150px;width:100%;"></video>
+                                            <button type="button" class="remove-btn"
+                                                onclick="removeUpload('input_video')">&times;</button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="upload-box" id="inputVideoBox">
-                                <input type="file" id="input_video" name="input_video" accept="video/*" hidden>
-                                <label for="input_video" class="upload-label">
-                                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                                    </svg>
-                                    <span>Continue Video</span>
-                                    <small>Upload video to extend/modify</small>
-                                </label>
-                                <div class="upload-preview" id="videoPreview" hidden>
-                                    <video id="videoPreviewPlayer" controls style="max-height: 150px; width: 100%;"></video>
-                                    <button type="button" class="remove-btn" onclick="removeUpload('input_video')">&times;</button>
+                            <!-- Video Settings -->
+                            <div class="form-section">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">settings</span>
+                                    Video Settings
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Video Settings -->
-                    <div class="form-section">
-                        <h3 class="section-title">Video Settings</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="width">Width</label>
-                                <input 
-                                    type="number" 
-                                    id="width" 
-                                    name="width"
-                                    value="1088"
-                                    step="64"
-                                    min="64"
-                                    max="1920"
-                                >
-                                <small>Must be divisible by 64</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="height">Height</label>
-                                <input 
-                                    type="number" 
-                                    id="height" 
-                                    name="height"
-                                    value="768"
-                                    step="64"
-                                    min="64"
-                                    max="1088"
-                                >
-                                <small>Must be divisible by 64</small>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="num_frames">Frames</label>
-                                <input 
-                                    type="number" 
-                                    id="num_frames" 
-                                    name="num_frames"
-                                    value="121"
-                                    min="17"
-                                    max="481"
-                                >
-                                <small>17 + 8*n (e.g., 49, 121, 241)</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="fps">FPS</label>
-                                <input 
-                                    type="number" 
-                                    id="fps" 
-                                    name="fps"
-                                    value="24"
-                                    step="1"
-                                    min="1"
-                                    max="60"
-                                >
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="num_inference_steps">Inference Steps</label>
-                                <input 
-                                    type="number" 
-                                    id="num_inference_steps" 
-                                    name="num_inference_steps"
-                                    placeholder="Auto"
-                                    min="1"
-                                    max="100"
-                                >
-                                <small>Leave empty for auto (30-40)</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="guidance_scale">Guidance Scale</label>
-                                <input 
-                                    type="number" 
-                                    id="guidance_scale" 
-                                    name="guidance_scale"
-                                    placeholder="4.0"
-                                    step="0.1"
-                                    min="0"
-                                    max="20"
-                                >
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="seed">Seed</label>
-                            <div class="input-with-button">
-                                <input 
-                                    type="number" 
-                                    id="seed" 
-                                    name="seed"
-                                    placeholder="Random"
-                                    min="0"
-                                    max="4294967295"
-                                >
-                                <button type="button" class="btn-secondary" onclick="randomSeed()" title="Generate random seed">
-                                    🎲 Random
-                                </button>
-                            </div>
-                            <small>Leave empty for random seed</small>
-                        </div>
-                    </div>
-
-                    <!-- Strength Controls -->
-                    <div class="form-section">
-                        <h3 class="section-title">Source Control</h3>
-                        <div class="form-group">
-                            <label for="input_video_strength">Video Strength: <span id="videoStrengthValue">1.0</span></label>
-                            <input
-                                type="range"
-                                id="input_video_strength"
-                                name="input_video_strength"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value="0.95"
-                                oninput="document.getElementById('videoStrengthValue').textContent = this.value"
-                            >
-                            <small>How much the input video influences the output (0=ignore, 1=full)</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="denoising_strength">Denoising Strength: <span id="denoisingStrengthValue">1.0</span></label>
-                            <input
-                                type="range"
-                                id="denoising_strength"
-                                name="denoising_strength"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value="1.0"
-                                oninput="document.getElementById('denoisingStrengthValue').textContent = this.value"
-                            >
-                            <small>When to start denoising (0=skip, 1=full generation)</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="prefix_frames_count">Prefix Frames: <span id="prefixFramesValue">0</span></label>
-                            <input
-                                type="range"
-                                id="prefix_frames_count"
-                                name="prefix_frames_count"
-                                min="0"
-                                max="120"
-                                step="1"
-                                value="0"
-                                oninput="document.getElementById('prefixFramesValue').textContent = this.value"
-                            >
-                            <small>Number of frames from input video to keep as prefix</small>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Settings -->
-                    <div class="form-section">
-                        <details>
-                            <summary class="section-title collapsible">
-                                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                </svg>
-                                Advanced Settings
-                            </summary>
-                            <div class="section-content">
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label for="attention">Attention Mode</label>
-                                        <select id="attention" name="attention">
-                                            <option value="">Auto</option>
-                                            <option value="flash">Flash</option>
-                                            <option value="sage2">SAGE2</option>
-                                            <option value="sage">SAGE</option>
-                                            <option value="sdpa">SDPA</option>
-                                        </select>
+                                        <label for="width">Width</label>
+                                        <input type="number" id="width" name="width" value="1088" step="64" min="64"
+                                            max="1920">
+                                        <small>Must be divisible by 64</small>
                                     </div>
                                     <div class="form-group">
-                                        <label for="sliding_window_size">Sliding Window</label>
-                                        <input 
-                                            type="number" 
-                                            id="sliding_window_size" 
-                                            name="sliding_window_size"
-                                            value="481"
-                                            min="1"
-                                        >
+                                        <label for="height">Height</label>
+                                        <input type="number" id="height" name="height" value="768" step="64" min="64"
+                                            max="1088">
+                                        <small>Must be divisible by 64</small>
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="num_frames">Frames</label>
+                                        <input type="number" id="num_frames" name="num_frames" value="121" min="17"
+                                            max="481">
+                                        <small>17 + 8×n (e.g. 49, 121, 241)</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="fps">FPS</label>
+                                        <input type="number" id="fps" name="fps" value="24" step="1" min="1" max="60">
+                                    </div>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="num_inference_steps">Inference Steps</label>
+                                        <input type="number" id="num_inference_steps" name="num_inference_steps"
+                                            placeholder="Auto" min="1" max="100">
+                                        <small>Leave empty for auto (30‑40)</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="guidance_scale">Guidance Scale</label>
+                                        <input type="number" id="guidance_scale" name="guidance_scale" placeholder="4.0"
+                                            step="0.1" min="0" max="20">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="seed">Seed</label>
+                                    <div class="input-with-button">
+                                        <input type="number" id="seed" name="seed" placeholder="Random" min="0"
+                                            max="4294967295">
+                                        <button type="button" class="btn-secondary" onclick="randomSeed()"
+                                            title="Generate random seed">
+                                            🎲 Random
+                                        </button>
+                                    </div>
+                                    <small>Leave empty for random seed</small>
+                                </div>
+                            </div>
+
+                            <!-- Source Control -->
+                            <div class="form-section">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">sliders</span>
+                                    Source Control
+                                </div>
+                                <div class="form-group">
+                                    <label for="input_video_strength">Video Strength: <span
+                                            id="videoStrengthValue">0.95</span></label>
+                                    <input type="range" id="input_video_strength" name="input_video_strength" min="0"
+                                        max="1" step="0.05" value="0.95"
+                                        oninput="document.getElementById('videoStrengthValue').textContent = this.value">
+                                    <small>How much the input video influences output (0 = ignore, 1 = full)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="denoising_strength">Denoising Strength: <span
+                                            id="denoisingStrengthValue">1.0</span></label>
+                                    <input type="range" id="denoising_strength" name="denoising_strength" min="0"
+                                        max="1" step="0.05" value="1.0"
+                                        oninput="document.getElementById('denoisingStrengthValue').textContent = this.value">
+                                    <small>When to start denoising (0 = skip, 1 = full generation)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="prefix_frames_count">Prefix Frames: <span
+                                            id="prefixFramesValue">0</span></label>
+                                    <input type="range" id="prefix_frames_count" name="prefix_frames_count" min="0"
+                                        max="120" step="1" value="0"
+                                        oninput="document.getElementById('prefixFramesValue').textContent = this.value">
+                                    <small>Number of frames from input video to keep as prefix</small>
+                                </div>
+                            </div>
+
+                            <!-- Advanced Settings -->
+                            <div class="form-section">
+                                <details>
+                                    <summary class="section-title collapsible" style="cursor:pointer;">
+                                        <span class="material-symbols-outlined">build</span>
+                                        Advanced Settings
+                                        <span class="material-symbols-outlined"
+                                            style="font-size:14px;margin-left:auto;color:var(--outline);">expand_more</span>
+                                    </summary>
+                                    <div class="section-content">
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label for="attention">Attention Mode</label>
+                                                <select id="attention" name="attention">
+                                                    <option value="">Auto</option>
+                                                    <option value="flash">Flash</option>
+                                                    <option value="sage2">SAGE2</option>
+                                                    <option value="sage">SAGE</option>
+                                                    <option value="sdpa">SDPA</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="sliding_window_size">Sliding Window</label>
+                                                <input type="number" id="sliding_window_size" name="sliding_window_size"
+                                                    value="481" min="1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
+
+                            <!-- Generate Button -->
+                            <button type="submit" class="btn-generate" id="submitBtn">
+                                <span class="material-symbols-outlined">play_arrow</span>
+                                Generate Video
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- ═══ Right Panel: Results ═══ -->
+                <section class="panel">
+                    <div class="panel-inner">
+
+                        <!-- Current Task -->
+                        <div>
+                            <h2 class="panel-title">
+                                <span class="material-symbols-outlined">monitoring</span>
+                                Current Task
+                            </h2>
+
+                            <div id="taskStatus" class="task-status-container">
+                                <!-- Empty state -->
+                                <div class="empty-state" id="emptyState">
+                                    <span class="material-symbols-outlined">play_circle</span>
+                                    <p>No active task</p>
+                                    <small>Submit a generation request to start</small>
+                                </div>
+
+                                <!-- Active task -->
+                                <div id="activeTask" class="active-task" hidden>
+                                    <div class="task-header">
+                                        <span class="task-id" id="taskId"></span>
+                                        <span class="task-badge" id="taskBadge"></span>
+                                    </div>
+
+                                    <!-- Progress Bar -->
+                                    <div class="progress-container" id="progressContainer" hidden>
+                                        <div class="progress-info">
+                                            <span>Progress</span>
+                                            <span id="progressPercent">0%</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" id="progressFill"></div>
+                                        </div>
+                                        <div class="progress-details">
+                                            <span id="stepInfo"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Error Message -->
+                                    <div class="error-message" id="errorMessage" hidden>
+                                        <span class="material-symbols-outlined">error</span>
+                                        <span id="errorText"></span>
+                                    </div>
+
+                                    <!-- Video Result -->
+                                    <div class="video-result" id="videoResult" hidden>
+                                        <video id="videoPlayer" controls></video>
+                                        <div class="video-info">
+                                            <div class="video-meta">
+                                                <div class="meta-item">
+                                                    <span class="meta-label">Seed</span>
+                                                    <span id="metaSeed" class="meta-value"></span>
+                                                </div>
+                                                <div class="meta-item">
+                                                    <span class="meta-label">Time</span>
+                                                    <span id="metaTime" class="meta-value"></span>
+                                                </div>
+                                            </div>
+                                            <a id="downloadBtn" class="btn-download" href="#" download>
+                                                <span class="material-symbols-outlined">download</span>
+                                                Download
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </details>
-                    </div>
-
-                    <!-- Submit Button -->
-                    <button type="submit" class="btn-generate" id="submitBtn">
-                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                        </svg>
-                        Generate Video
-                    </button>
-                </form>
-            </section>
-
-            <!-- Right Panel: Progress & Results -->
-            <section class="panel results-panel">
-                <!-- Current Task -->
-                <div class="current-task">
-                    <h2 class="panel-title">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                        </svg>
-                        Current Task
-                    </h2>
-
-                    <div id="taskStatus" class="task-status-container">
-                        <div class="empty-state" id="emptyState">
-                            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polygon points="10 8 16 12 10 16 10 8"></polygon>
-                            </svg>
-                            <p>No active task</p>
-                            <small>Submit a generation request to start</small>
                         </div>
 
-                        <div id="activeTask" class="active-task" hidden>
-                            <div class="task-header">
-                                <span class="task-id" id="taskId"></span>
-                                <span class="task-badge" id="taskBadge"></span>
-                            </div>
-
-                            <!-- Progress Bar -->
-                            <div class="progress-container" id="progressContainer" hidden>
-                                <div class="progress-info">
-                                    <span>Progress</span>
-                                    <span id="progressPercent">0%</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill" id="progressFill"></div>
-                                </div>
-                                <div class="progress-details">
-                                    <span id="stepInfo"></span>
-                                </div>
-                            </div>
-
-                            <!-- Error Message -->
-                            <div class="error-message" id="errorMessage" hidden>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="15" y1="9" x2="9" y2="15"></line>
-                                    <line x1="9" y1="9" x2="15" y2="15"></line>
-                                </svg>
-                                <span id="errorText"></span>
-                            </div>
-
-                            <!-- Video Result -->
-                            <div class="video-result" id="videoResult" hidden>
-                                <video id="videoPlayer" controls></video>
-                                <div class="video-info">
-                                    <div class="video-meta">
-                                        <div class="meta-item">
-                                            <span class="meta-label">Seed</span>
-                                            <span id="metaSeed" class="meta-value"></span>
-                                        </div>
-                                        <div class="meta-item">
-                                            <span class="meta-label">Time</span>
-                                            <span id="metaTime" class="meta-value"></span>
-                                        </div>
-                                    </div>
-                                    <a id="downloadBtn" class="btn-download" href="#" download>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                            <polyline points="7 10 12 15 17 10"></polyline>
-                                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                                        </svg>
-                                        Download Video
-                                    </a>
+                        <!-- Task History -->
+                        <div class="task-history">
+                            <h2 class="panel-title">
+                                <span class="material-symbols-outlined">history</span>
+                                Task History
+                            </h2>
+                            <div id="taskHistoryList" class="task-history-list">
+                                <div class="empty-history">
+                                    <small>No completed tasks yet</small>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <!-- Task History -->
-                <div class="task-history">
-                    <h2 class="panel-title">
-                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        Task History
-                    </h2>
-                    <div id="taskHistoryList" class="task-history-list">
-                        <div class="empty-history">
-                            <small>No completed tasks</small>
-                        </div>
-                    </div>
-                </div>
-            </section>
-        </div>
-    </main>
+            </div><!-- /app-layout -->
+        </div><!-- /page-body -->
+    </div><!-- /main-content -->
 
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
 
     <script src="static/app.js"></script>
 </body>
+
 </html>

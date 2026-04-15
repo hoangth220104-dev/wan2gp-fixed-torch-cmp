@@ -28,6 +28,13 @@ class LoRAManager:
             from models.ltx2.ltx2 import _attach_lora_preprocessor
             _attach_lora_preprocessor(transformer)
         
+        # Create a preprocessor function with correct signature for load_loras_into_model
+        # It needs to be callable as preprocess_sd(sd) but internally calls transformer.preprocess_loras(model_type, sd)
+        def preprocess_wrapper(sd: dict) -> dict:
+            return transformer.preprocess_loras(model_type, sd)
+        
+        self.preprocess_sd = preprocess_wrapper
+        
         print("LoRA Manager initialized")
     
     def load_lora(
@@ -56,13 +63,13 @@ class LoRAManager:
         try:
             print(f"Loading LoRA: {lora_path} (multiplier={multiplier})")
             
-            # Load LoRA into model
+            # Load LoRA into model with proper preprocessor
             offload.load_loras_into_model(
                 self.transformer,
                 [lora_path],
                 activate_all_loras=activate,
                 check_only=False,
-                preprocess_sd=getattr(self.transformer, 'preprocess_loras', None),
+                preprocess_sd=self.preprocess_sd,
                 split_linear_modules_map=getattr(self.transformer, 'split_linear_modules_map', None)
             )
             
