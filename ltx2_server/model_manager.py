@@ -9,10 +9,12 @@ from typing import Optional, Tuple, Any
 from models.ltx2 import ltx2_handler
 from models.ltx2.ltx2 import LTX2
 from models.ltx2.ltx2_handler import _resolve_multi_file_paths
+from models.ltx2.ltx2 import _attach_lora_preprocessor
 from shared.utils import files_locator as fl
 from mmgp import offload
 
 from ltx2_server.config import ServerConfig
+from ltx2_server.lora_manager import lora_manager
 
 
 class ModelManager:
@@ -23,11 +25,17 @@ class ModelManager:
         self.offload_obj: Optional[Any] = None
         self.model_type: Optional[str] = None
         self.model_def: Optional[dict] = None
+        self.transformer = None  # Reference to transformer for LoRA loading
     
     @property
     def is_loaded(self) -> bool:
         """Check if model is loaded"""
         return self.ltx2_instance is not None
+    
+    @property
+    def lora_manager(self):
+        """Get LoRA manager instance"""
+        return lora_manager
     
     def load(self, config: ServerConfig) -> None:
         """Load LTX-2 model into memory"""
@@ -39,6 +47,12 @@ class ModelManager:
         
         self.ltx2_instance, self.offload_obj, self.model_def = _load_ltx2_model(config)
         self.model_type = config.model_type
+        
+        # Get transformer reference for LoRA loading
+        self.transformer = self.ltx2_instance.model
+        
+        # Initialize LoRA manager
+        lora_manager.initialize(self.transformer, config.model_type)
         
         load_time = time.time() - start_time
         print(f"✓ Model loaded in {load_time:.2f} seconds")

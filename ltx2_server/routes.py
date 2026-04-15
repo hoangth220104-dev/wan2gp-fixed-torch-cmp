@@ -3,10 +3,11 @@
 import uuid
 import asyncio
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from PIL import Image
 
 from ltx2_server.models import (
@@ -238,6 +239,98 @@ async def get_models():
         current_model=model_manager.model_type,
         available_models=["ltx2_19B", "ltx2_22B"],
     )
+
+
+# ===== LoRA Endpoints =====
+
+class LoRALoadRequest(BaseModel):
+    """Request to load a LoRA"""
+    lora_path: str
+    multiplier: float = Field(1.0, ge=0.0, le=5.0)
+    activate: bool = True
+
+class LoRAMultiplierRequest(BaseModel):
+    """Request to update LoRA multiplier"""
+    lora_path: str
+    multiplier: float = Field(..., ge=0.0, le=5.0)
+
+class LoRAStatusResponse(BaseModel):
+    """LoRA status response"""
+    loaded_loras: List[Dict[str, Any]]
+    active_loras: List[str]
+
+
+@router.post("/loras/load")
+async def load_lora(request: LoRALoadRequest):
+    """Load a LoRA weight file"""
+    if not model_manager.is_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    success = model_manager.lora_manager.load_lora(
+        lora_path=request.lora_path,
+        multiplier=request.multiplier,
+        activate=request.activate
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to load LoRA")
+    
+    return {
+        "message": "LoRA loaded successfully",
+        "lora_path": request.lora_path,
+        "multiplier": request.multiplier
+    }
+
+
+@router.get("/loras", response_model=LoRAStatusResponse)
+async def get_loras():
+    """Get list of loaded LoRAs"""
+    return LoRAStatusResponse(
+        loaded_loras=model_manager.lora_manager.get_loaded_loras(),
+        active_loras=model_manager.lora_manager.get_active_loras()
+    )
+
+
+@router.post("/loras/multiplier")
+async def set_lora_multiplier(request: LoRAMultiplierRequest):
+    """Update LoRA multiplier"""
+    try:
+        model_manager.lora_manager.set_lora_multiplier(
+            lora_path=request.lora_path,
+            multiplier=request.multiplier
+        )
+        return {"message": "Multiplier updated", "lora_path": request.lora_path, "multiplier": request.multiplier}
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/loras/{lora_path:path}/activate")
+async def activate_lora(lora_path: str):
+    """Activate a loaded LoRA"""
+    try:
+        model_manager.lora_manager.activate_lora(lora_path)
+        return {"message": "LoRA activated", "lora_path": lora_path}
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/loras/{lora_path:path}/deactivate")
+async def deactivate_lora(lora_path: str):
+    """Deactivate a loaded LoRA"""
+    try:
+        model_manager.lora_manager.deactivate_lora(lora_path)
+        return {"message": "LoRA deactivated", "lora_path": lora_path}
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/loras/{lora_path:path}")
+async def unload_lora(lora_path: str):
+    """Unload a LoRA"""
+    success = model_manager.lora_manager.unload_lora(lora_path)
+    if not success:
+        raise HTTPException(status_code=404, detail="LoRA not found")
+    return {"message": "LoRA unloaded", "lora_path": lora_path}
 
 
 async def _process_task(task_id: str):
