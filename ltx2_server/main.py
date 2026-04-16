@@ -111,10 +111,11 @@ def _create_app_with_config(config: ServerConfig) -> FastAPI:
     
     # Create app
     app = FastAPI(
-        title="LTX-2 Video Generation API",
-        description="FastAPI server for LTX-2 text/image-to-video generation",
+        title="ProtonX Video Generation API",
+        description="FastAPI server for text/image-to-video generation",
         version="1.0.0",
         lifespan=lifespan,
+
     )
     
     # Register API routes

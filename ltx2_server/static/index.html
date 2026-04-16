@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LTX-2 Video Generator</title>
+    <title>ProtonX Video Generator</title>
     <meta name="description"
-        content="Generate AI-powered videos with LTX-2. Text-to-video, image-to-video, and audio-guided generation.">
+        content="Generate AI-powered videos. Text-to-video, image-to-video, and audio-guided generation.">
     <!-- Google Fonts -->
     <link
         href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=DM+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
@@ -24,8 +24,8 @@
     <aside id="sidebar">
         <div>
             <a href="/" class="sidebar-logo">
-                <img src="static/logo.png" alt="LTX-2 logo" class="logo-img">
-                <span class="sidebar-label">LTX-2</span>
+                <img src="static/logo.png" alt="AgentBook logo" class="logo-img">
+                <span class="sidebar-label">AgentBook Video</span>
             </a>
 
             <nav class="sidebar-nav">
@@ -33,10 +33,10 @@
                     <span class="material-symbols-outlined nav-icon">movie</span>
                     <span class="sidebar-label">Generate</span>
                 </a>
-                <a href="/docs" target="_blank">
+                <!-- <a href="/docs" target="_blank">
                     <span class="material-symbols-outlined nav-icon">api</span>
                     <span class="sidebar-label">API Docs</span>
-                </a>
+                </a> -->
             </nav>
         </div>
 
@@ -57,7 +57,7 @@
                 <h1>Video Generator</h1>
                 <span class="header-badge">
                     <span class="material-symbols-outlined" style="font-size:13px;">auto_awesome</span>
-                    LTX-2
+                    ProtonX
                 </span>
             </div>
             <div class="header-actions">
@@ -154,7 +154,7 @@
                                     </div>
 
                                     <!-- Continue Video -->
-                                    <div class="upload-box" id="inputVideoBox">
+                                    <div class="upload-box" id="inputVideoBox" hidden>
                                         <input type="file" id="input_video" name="input_video" accept="video/*" hidden>
                                         <label for="input_video" class="upload-label">
                                             <span class="material-symbols-outlined">videocam</span>
@@ -170,9 +170,24 @@
                                     </div>
                                 </div>
                             </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="num_seconds">Duration (seconds)</label>
+                                    <input type="number" id="num_seconds" name="num_seconds" value="5" min="1" max="20" step="1">
+                                    <small>Frames will be calculated automatically as: 24 × seconds + 1</small>
+                                </div>
 
+                                <div class="form-group">
+                                    <label for="fps">FPS</label>
+                                    <input type="number" id="fps" name="fps" value="24" step="1" min="1" max="60">
+                                </div>
+                            </div>
+
+                            <!-- hidden field sent to backend -->
+                            <input type="hidden" id="num_frames" name="num_frames" value="121">
                             <!-- Video Settings -->
-                            <div class="form-section">
+                            <div class="form-section" hidden>
                                 <div class="section-title">
                                     <span class="material-symbols-outlined">settings</span>
                                     Video Settings
@@ -192,25 +207,14 @@
                                     </div>
                                 </div>
 
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="num_frames">Frames</label>
-                                        <input type="number" id="num_frames" name="num_frames" value="121" min="17"
-                                            max="481">
-                                        <small>17 + 8×n (e.g. 49, 121, 241)</small>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="fps">FPS</label>
-                                        <input type="number" id="fps" name="fps" value="24" step="1" min="1" max="60">
-                                    </div>
-                                </div>
 
-                                <div class="form-row">
+
+                                <div class="form-row" hidden>
                                     <div class="form-group">
                                         <label for="num_inference_steps">Inference Steps</label>
                                         <input type="number" id="num_inference_steps" name="num_inference_steps"
                                             placeholder="Auto" min="1" max="100">
-                                        <small>Leave empty for auto (30‑40)</small>
+                                        <small>Leave empty for auto (30-40)</small>
                                     </div>
                                     <div class="form-group">
                                         <label for="guidance_scale">Guidance Scale</label>
@@ -219,7 +223,7 @@
                                     </div>
                                 </div>
 
-                                <div class="form-group">
+                                <div class="form-group" hidden>
                                     <label for="seed">Seed</label>
                                     <div class="input-with-button">
                                         <input type="number" id="seed" name="seed" placeholder="Random" min="0"
@@ -234,7 +238,7 @@
                             </div>
 
                             <!-- Source Control -->
-                            <div class="form-section">
+                            <div class="form-section" hidden>
                                 <div class="section-title">
                                     <span class="material-symbols-outlined">sliders</span>
                                     Source Control
@@ -266,7 +270,7 @@
                             </div>
 
                             <!-- Advanced Settings -->
-                            <div class="form-section">
+                            <div class="form-section" hidden>
                                 <details>
                                     <summary class="section-title collapsible" style="cursor:pointer;">
                                         <span class="material-symbols-outlined">build</span>
@@ -396,7 +400,22 @@
 
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
+    <script>
+    function updateNumFrames() {
+        const seconds = parseInt(document.getElementById("num_seconds").value || "0", 10);
+        const fps = parseInt(document.getElementById("fps").value || "24", 10);
 
+        // Your rule: 24 frames per second + 1
+        const numFrames = (fps * seconds) + 1;
+
+        document.getElementById("num_frames").value = numFrames;
+    }
+
+    document.getElementById("num_seconds").addEventListener("input", updateNumFrames);
+    document.getElementById("fps").addEventListener("input", updateNumFrames);
+
+    updateNumFrames();
+    </script>
     <script src="static/app.js"></script>
 </body>
 
