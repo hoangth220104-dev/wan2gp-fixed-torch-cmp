@@ -91,11 +91,11 @@
                                     <textarea id="prompt" name="prompt" rows="3"
                                         placeholder="Describe the video you want to generate..." required></textarea>
                                 </div>
-                                <!-- <div class="form-group">
+                                <div class="form-group">
                                     <label for="negative_prompt">Negative Prompt</label>
                                     <input type="text" id="negative_prompt" name="negative_prompt"
                                         placeholder="What to avoid in the generation...">
-                                </div> -->
+                                </div>
                             </div>
 
                             <!-- Uploads Section -->
@@ -154,7 +154,7 @@
                                     </div>
 
                                     <!-- Continue Video -->
-                                    <!-- <div class="upload-box" id="inputVideoBox">
+                                    <div class="upload-box" id="inputVideoBox">
                                         <input type="file" id="input_video" name="input_video" accept="video/*" hidden>
                                         <label for="input_video" class="upload-label">
                                             <span class="material-symbols-outlined">videocam</span>
@@ -167,13 +167,13 @@
                                             <button type="button" class="remove-btn"
                                                 onclick="removeUpload('input_video')">&times;</button>
                                         </div>
-                                    </div> -->
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Video Settings -->
                             <div class="form-section">
-                                <!-- <div class="section-title">
+                                <div class="section-title">
                                     <span class="material-symbols-outlined">settings</span>
                                     Video Settings
                                 </div>
@@ -190,9 +190,9 @@
                                             max="1088">
                                         <small>Must be divisible by 64</small>
                                     </div>
-                                </div> -->
+                                </div>
 
-                                <!-- <div class="form-row">
+                                <div class="form-row">
                                     <div class="form-group">
                                         <label for="num_frames">Frames</label>
                                         <input type="number" id="num_frames" name="num_frames" value="121" min="17"
@@ -203,25 +203,9 @@
                                         <label for="fps">FPS</label>
                                         <input type="number" id="fps" name="fps" value="24" step="1" min="1" max="60">
                                     </div>
-                                </div> -->
-
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="num_seconds">Duration (seconds)</label>
-                                        <input type="number" id="num_seconds" name="num_seconds" value="5" min="1" max="20" step="1">
-                                        <small>Frames will be calculated automatically as: 24 × seconds + 1</small>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="fps">FPS</label>
-                                        <input type="number" id="fps" name="fps" value="24" step="1" min="1" max="60">
-                                    </div>
                                 </div>
 
-                                <!-- hidden field sent to backend -->
-                                <input type="hidden" id="num_frames" name="num_frames" value="121">
-
-                                <!-- <div class="form-row">
+                                <div class="form-row">
                                     <div class="form-group">
                                         <label for="num_inference_steps">Inference Steps</label>
                                         <input type="number" id="num_inference_steps" name="num_inference_steps"
@@ -233,9 +217,9 @@
                                         <input type="number" id="guidance_scale" name="guidance_scale" placeholder="4.0"
                                             step="0.1" min="0" max="20">
                                     </div>
-                                </div> -->
+                                </div>
 
-                                <!-- <div class="form-group">
+                                <div class="form-group">
                                     <label for="seed">Seed</label>
                                     <div class="input-with-button">
                                         <input type="number" id="seed" name="seed" placeholder="Random" min="0"
@@ -246,11 +230,11 @@
                                         </button>
                                     </div>
                                     <small>Leave empty for random seed</small>
-                                </div> -->
+                                </div>
                             </div>
 
                             <!-- Source Control -->
-                            <!-- <div class="form-section">
+                            <div class="form-section">
                                 <div class="section-title">
                                     <span class="material-symbols-outlined">sliders</span>
                                     Source Control
@@ -279,10 +263,10 @@
                                         oninput="document.getElementById('prefixFramesValue').textContent = this.value">
                                     <small>Number of frames from input video to keep as prefix</small>
                                 </div>
-                            </div> -->
+                            </div>
 
                             <!-- Advanced Settings -->
-                            <!-- <div class="form-section">
+                            <div class="form-section">
                                 <details>
                                     <summary class="section-title collapsible" style="cursor:pointer;">
                                         <span class="material-symbols-outlined">build</span>
@@ -310,7 +294,7 @@
                                         </div>
                                     </div>
                                 </details>
-                            </div> -->
+                            </div>
 
                             <!-- Generate Button -->
                             <button type="submit" class="btn-generate" id="submitBtn">
@@ -414,22 +398,6 @@
     <div id="toastContainer" class="toast-container"></div>
 
     <script src="static/app.js"></script>
-    <script>
-    function updateNumFrames() {
-        const seconds = parseInt(document.getElementById("num_seconds").value || "0", 10);
-        const fps = parseInt(document.getElementById("fps").value || "24", 10);
-
-        // Your rule: 24 frames per second + 1
-        const numFrames = (fps * seconds) + 1;
-
-        document.getElementById("num_frames").value = numFrames;
-    }
-
-    document.getElementById("num_seconds").addEventListener("input", updateNumFrames);
-    document.getElementById("fps").addEventListener("input", updateNumFrames);
-
-    updateNumFrames();
-    </script>
 </body>
 
 </html>
