@@ -50,6 +50,10 @@
 }
 
 /* ===== Reset ===== */
+[hidden] {
+    display: none !important;
+}
+
 *,
 *::before,
 *::after {
@@ -822,6 +826,7 @@ button,
     margin-bottom: 12px;
     font-size: 13px;
 }
+
 
 .error-message .material-symbols-outlined {
     font-size: 18px;
