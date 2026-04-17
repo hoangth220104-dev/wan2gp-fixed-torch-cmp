@@ -246,6 +246,19 @@
                                                 Source Control
                                             </div>
                                             <div class="form-group">
+                                                <label for="video_prompt_type">Video Prompt Type</label>
+                                                <select id="video_prompt_type" name="video_prompt_type">
+                                                    <option value="V" selected>Continue Video (V)</option>
+                                                    <option value="L">Continue Last Video (L)</option>
+                                                    <option value="G">Guided (G)</option>
+                                                    <option value="VG">Continue + Guided (VG)</option>
+                                                    <option value="VL">Continue + Last (VL)</option>
+                                                    <option value="LG">Last + Guided (LG)</option>
+                                                    <option value="VLG">All Combined (VLG)</option>
+                                                </select>
+                                                <small>V=continue video, L=continue last, G=guided denoising</small>
+                                            </div>
+                                            <div class="form-group">
                                                 <label for="input_video_strength">Video Strength: <span
                                                         id="videoStrengthValue">0.95</span></label>
                                                 <input type="range" id="input_video_strength" name="input_video_strength" min="0"
