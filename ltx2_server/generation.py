@@ -98,12 +98,17 @@ def generate_video(
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frames.append(frame)
             cap.release()
-            
+
             if frames:
-                # Convert to tensor [F, H, W, C]
+                # Convert to tensor [F, H, W, C] then transpose to [C, F, H, W]
                 frames_np = np.array(frames).astype(np.float32) / 255.0 * 2.0 - 1.0  # Normalize to [-1, 1]
+                frames_np = np.transpose(frames_np, (3, 0, 1, 2))  # [F,H,W,C] -> [C,F,H,W]
                 input_video = torch.from_numpy(frames_np)
                 print(f"  Video loaded: {len(frames)} frames, shape={input_video.shape}")
+                # Auto-set prefix_frames_count to use all frames from input video
+                if prefix_frames_count == 0:
+                    prefix_frames_count = len(frames)
+                    print(f"  Auto-set prefix_frames_count to {prefix_frames_count} (all frames)")
             else:
                 print(f"  Warning: No frames extracted from video")
         except Exception as e:
