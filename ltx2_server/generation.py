@@ -28,6 +28,7 @@ def generate_video(
     image_end_path: Optional[str] = None,
     audio_guide_path: Optional[str] = None,
     input_video_path: Optional[str] = None,
+    video_prompt_type: str = "",
     width: int = 768,
     height: int = 512,
     num_frames: int = 121,
@@ -71,6 +72,7 @@ def generate_video(
     print(f"  Image Start: {image_start_path if image_start_path else 'None'}")
     print(f"  Image End: {image_end_path if image_end_path else 'None'}")
     print(f"  Input Video: {input_video_path if input_video_path else 'None'}")
+    print(f"  Video Prompt Type: {video_prompt_type if video_prompt_type else 'None'}")
     print(f"  Audio Guide: {audio_guide_path if audio_guide_path else 'None'}")
     print(f"  Video Strength: {input_video_strength}")
     print(f"  Denoising Strength: {denoising_strength}")
@@ -184,8 +186,7 @@ def generate_video(
         input_waveform=input_waveform,
         input_waveform_sample_rate=input_waveform_sample_rate,
         audio_scale=1.0,
-        sliding_window_size=sliding_window_size,
-        sliding_window_overlap=sliding_window_overlap,
+        video_prompt_type=video_prompt_type,
         input_video_strength=input_video_strength,
         denoising_strength=denoising_strength,
     )
