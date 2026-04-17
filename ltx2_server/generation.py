@@ -227,9 +227,9 @@ def save_video_result(
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     if prompt:
         prompt_preview = sanitize_file_name(prompt[:50])
-        filename = f"ltx2_{timestamp}_{prompt_preview}_seed{seed}.mp4"
+        filename = f"{timestamp}_{prompt_preview}_seed{seed}.mp4"
     else:
-        filename = f"ltx2_{timestamp}_seed{seed}.mp4"
+        filename = f"{timestamp}_seed{seed}.mp4"
 
     if not filename.endswith(".mp4"):
         filename += ".mp4"

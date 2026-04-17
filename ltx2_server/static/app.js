@@ -1,6 +1,4 @@
-/**
- * LTX-2 Video Generator — Frontend Application (Redesigned)
- */
+
 
 // ===== State Management =====
 const state = {
@@ -411,7 +409,7 @@ async function init() {
     // Render task history
     renderTaskHistory();
 
-    console.log('LTX-2 Video Generator initialized');
+    console.log('Video Generator initialized');
 }
 
 // Start app when DOM is ready

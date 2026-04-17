@@ -88,7 +88,7 @@ def _create_app_with_config(config: ServerConfig) -> FastAPI:
     async def lifespan(app: FastAPI):
         """Startup and shutdown"""
         print("=" * 60)
-        print("LTX-2 FastAPI Server Starting")
+        print("FastAPI Server Starting")
         print(f"  Model: {config.model_type}")
         print(f"  Profile: {config.profile}")
         print(f"  VRAM Safety: {config.vram_safety_coefficient}")
