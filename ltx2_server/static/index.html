@@ -33,10 +33,6 @@
                     <span class="material-symbols-outlined nav-icon">movie</span>
                     <span class="sidebar-label">Generate</span>
                 </a>
-                <!-- <a href="/docs" target="_blank">
-                    <span class="material-symbols-outlined nav-icon">api</span>
-                    <span class="sidebar-label">API Docs</span>
-                </a> -->
             </nav>
         </div>
 
@@ -60,10 +56,6 @@
                     ProtonX
                 </span>
             </div>
-            <!-- <div class="header-actions">
-                <span id="modelInfo"
-                    style="font-size:11px;color:var(--outline);font-family:'JetBrains Mono',monospace;">—</span>
-            </div> -->
         </header>
 
         <!-- Scrollable Page Body -->
@@ -154,7 +146,7 @@
                                     </div>
 
                                     <!-- Continue Video -->
-                                    <div class="upload-box" id="inputVideoBox" hidden>
+                                    <div class="upload-box" id="inputVideoBox">
                                         <input type="file" id="input_video" name="input_video" accept="video/*" hidden>
                                         <label for="input_video" class="upload-label">
                                             <span class="material-symbols-outlined">videocam</span>
@@ -170,7 +162,8 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
+                            <!-- Duration & FPS -->
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="num_seconds">Duration (seconds)</label>
@@ -186,117 +179,124 @@
 
                             <!-- hidden field sent to backend -->
                             <input type="hidden" id="num_frames" name="num_frames" value="121">
-                            <!-- Video Settings -->
-                            <div class="form-section" hidden>
-                                <div class="section-title">
-                                    <span class="material-symbols-outlined">settings</span>
-                                    Video Settings
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="width">Width</label>
-                                        <input type="number" id="width" name="width" value="1088" step="64" min="64"
-                                            max="1920">
-                                        <small>Must be divisible by 64</small>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="height">Height</label>
-                                        <input type="number" id="height" name="height" value="768" step="64" min="64"
-                                            max="1088">
-                                        <small>Must be divisible by 64</small>
-                                    </div>
-                                </div>
 
-
-
-                                <div class="form-row" hidden>
-                                    <div class="form-group">
-                                        <label for="num_inference_steps">Inference Steps</label>
-                                        <input type="number" id="num_inference_steps" name="num_inference_steps"
-                                            placeholder="Auto" min="1" max="100">
-                                        <small>Leave empty for auto (30-40)</small>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="guidance_scale">Guidance Scale</label>
-                                        <input type="number" id="guidance_scale" name="guidance_scale" placeholder="4.0"
-                                            step="0.1" min="0" max="20">
-                                    </div>
-                                </div>
-
-                                <div class="form-group" hidden>
-                                    <label for="seed">Seed</label>
-                                    <div class="input-with-button">
-                                        <input type="number" id="seed" name="seed" placeholder="Random" min="0"
-                                            max="4294967295">
-                                        <button type="button" class="btn-secondary" onclick="randomSeed()"
-                                            title="Generate random seed">
-                                            🎲 Random
-                                        </button>
-                                    </div>
-                                    <small>Leave empty for random seed</small>
-                                </div>
-                            </div>
-
-                            <!-- Source Control -->
-                            <div class="form-section" hidden>
-                                <div class="section-title">
-                                    <span class="material-symbols-outlined">sliders</span>
-                                    Source Control
-                                </div>
-                                <div class="form-group">
-                                    <label for="input_video_strength">Video Strength: <span
-                                            id="videoStrengthValue">0.95</span></label>
-                                    <input type="range" id="input_video_strength" name="input_video_strength" min="0"
-                                        max="1" step="0.05" value="0.95"
-                                        oninput="document.getElementById('videoStrengthValue').textContent = this.value">
-                                    <small>How much the input video influences output (0 = ignore, 1 = full)</small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="denoising_strength">Denoising Strength: <span
-                                            id="denoisingStrengthValue">1.0</span></label>
-                                    <input type="range" id="denoising_strength" name="denoising_strength" min="0"
-                                        max="1" step="0.05" value="1.0"
-                                        oninput="document.getElementById('denoisingStrengthValue').textContent = this.value">
-                                    <small>When to start denoising (0 = skip, 1 = full generation)</small>
-                                </div>
-                                <div class="form-group">
-                                    <label for="prefix_frames_count">Prefix Frames: <span
-                                            id="prefixFramesValue">0</span></label>
-                                    <input type="range" id="prefix_frames_count" name="prefix_frames_count" min="0"
-                                        max="120" step="1" value="0"
-                                        oninput="document.getElementById('prefixFramesValue').textContent = this.value">
-                                    <small>Number of frames from input video to keep as prefix</small>
-                                </div>
-                            </div>
-
-                            <!-- Advanced Settings -->
-                            <div class="form-section" hidden>
-                                <details>
-                                    <summary class="section-title collapsible" style="cursor:pointer;">
+                            <!-- ═══ Advanced Settings (collapsible) ═══ -->
+                            <div class="form-section">
+                                <details id="advancedDetails">
+                                    <summary class="section-title collapsible" style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;">
                                         <span class="material-symbols-outlined">build</span>
                                         Advanced Settings
-                                        <span class="material-symbols-outlined"
-                                            style="font-size:14px;margin-left:auto;color:var(--outline);">expand_more</span>
+                                        <span class="material-symbols-outlined" id="advancedChevron"
+                                            style="font-size:14px;margin-left:auto;color:var(--outline);transition:transform 0.2s;">expand_more</span>
                                     </summary>
-                                    <div class="section-content">
-                                        <div class="form-row">
-                                            <div class="form-group">
-                                                <label for="attention">Attention Mode</label>
-                                                <select id="attention" name="attention">
-                                                    <option value="">Auto</option>
-                                                    <option value="flash">Flash</option>
-                                                    <option value="sage2">SAGE2</option>
-                                                    <option value="sage">SAGE</option>
-                                                    <option value="sdpa">SDPA</option>
-                                                </select>
+
+                                    <div class="section-content" style="padding-top:12px;">
+
+                                        <!-- Video Settings -->
+                                        <div class="form-section">
+                                            <div class="section-title" style="font-size:12px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;">
+                                                <span class="material-symbols-outlined">settings</span>
+                                                Video Settings
                                             </div>
+                                            <div class="form-row">
+                                                <div class="form-group">
+                                                    <label for="width">Width</label>
+                                                    <input type="number" id="width" name="width" value="1088" step="64" min="64" max="1920">
+                                                    <small>Must be divisible by 64</small>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="height">Height</label>
+                                                    <input type="number" id="height" name="height" value="768" step="64" min="64" max="1088">
+                                                    <small>Must be divisible by 64</small>
+                                                </div>
+                                            </div>
+
+                                            <div class="form-row">
+                                                <div class="form-group">
+                                                    <label for="num_inference_steps">Inference Steps</label>
+                                                    <input type="number" id="num_inference_steps" name="num_inference_steps"
+                                                        placeholder="Auto" min="1" max="100">
+                                                    <small>Leave empty for auto (30-40)</small>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="guidance_scale">Guidance Scale</label>
+                                                    <input type="number" id="guidance_scale" name="guidance_scale" placeholder="4.0"
+                                                        step="0.1" min="0" max="20">
+                                                </div>
+                                            </div>
+
                                             <div class="form-group">
-                                                <label for="sliding_window_size">Sliding Window</label>
-                                                <input type="number" id="sliding_window_size" name="sliding_window_size"
-                                                    value="481" min="1">
+                                                <label for="seed">Seed</label>
+                                                <div class="input-with-button">
+                                                    <input type="number" id="seed" name="seed" placeholder="Random" min="0"
+                                                        max="4294967295">
+                                                    <button type="button" class="btn-secondary" onclick="randomSeed()"
+                                                        title="Generate random seed">
+                                                        🎲 Random
+                                                    </button>
+                                                </div>
+                                                <small>Leave empty for random seed</small>
                                             </div>
                                         </div>
-                                    </div>
+
+                                        <!-- Source Control -->
+                                        <div class="form-section">
+                                            <div class="section-title" style="font-size:12px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;">
+                                                <span class="material-symbols-outlined">sliders</span>
+                                                Source Control
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="input_video_strength">Video Strength: <span
+                                                        id="videoStrengthValue">0.95</span></label>
+                                                <input type="range" id="input_video_strength" name="input_video_strength" min="0"
+                                                    max="1" step="0.05" value="0.95"
+                                                    oninput="document.getElementById('videoStrengthValue').textContent = this.value">
+                                                <small>How much the input video influences output (0 = ignore, 1 = full)</small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="denoising_strength">Denoising Strength: <span
+                                                        id="denoisingStrengthValue">1.0</span></label>
+                                                <input type="range" id="denoising_strength" name="denoising_strength" min="0"
+                                                    max="1" step="0.05" value="1.0"
+                                                    oninput="document.getElementById('denoisingStrengthValue').textContent = this.value">
+                                                <small>When to start denoising (0 = skip, 1 = full generation)</small>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="prefix_frames_count">Prefix Frames: <span
+                                                        id="prefixFramesValue">0</span></label>
+                                                <input type="range" id="prefix_frames_count" name="prefix_frames_count" min="0"
+                                                    max="120" step="1" value="0"
+                                                    oninput="document.getElementById('prefixFramesValue').textContent = this.value">
+                                                <small>Number of frames from input video to keep as prefix</small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Attention / Sliding Window -->
+                                        <div class="form-section">
+                                            <div class="section-title" style="font-size:12px;text-transform:uppercase;letter-spacing:0.05em;opacity:0.6;">
+                                                <span class="material-symbols-outlined">memory</span>
+                                                Attention &amp; Window
+                                            </div>
+                                            <div class="form-row">
+                                                <div class="form-group">
+                                                    <label for="attention">Attention Mode</label>
+                                                    <select id="attention" name="attention">
+                                                        <option value="">Auto</option>
+                                                        <option value="flash">Flash</option>
+                                                        <option value="sage2">SAGE2</option>
+                                                        <option value="sage">SAGE</option>
+                                                        <option value="sdpa">SDPA</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="sliding_window_size">Sliding Window</label>
+                                                    <input type="number" id="sliding_window_size" name="sliding_window_size"
+                                                        value="481" min="1">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div><!-- /section-content -->
                                 </details>
                             </div>
 
@@ -400,22 +400,27 @@
 
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
+
     <script>
     function updateNumFrames() {
         const seconds = parseInt(document.getElementById("num_seconds").value || "0", 10);
         const fps = parseInt(document.getElementById("fps").value || "24", 10);
-
-        // Your rule: 24 frames per second + 1
         const numFrames = (fps * seconds) + 1;
-
         document.getElementById("num_frames").value = numFrames;
     }
 
     document.getElementById("num_seconds").addEventListener("input", updateNumFrames);
     document.getElementById("fps").addEventListener("input", updateNumFrames);
-
     updateNumFrames();
+
+    // Rotate chevron when advanced section opens/closes
+    const details = document.getElementById("advancedDetails");
+    const chevron = document.getElementById("advancedChevron");
+    details.addEventListener("toggle", () => {
+        chevron.style.transform = details.open ? "rotate(180deg)" : "rotate(0deg)";
+    });
     </script>
+
     <script src="static/app.js"></script>
 </body>
 
