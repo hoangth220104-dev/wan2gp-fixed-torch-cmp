@@ -104,7 +104,11 @@ def generate_video(
                 frames_np = np.array(frames).astype(np.float32) / 255.0 * 2.0 - 1.0  # Normalize to [-1, 1]
                 frames_np = np.transpose(frames_np, (3, 0, 1, 2))  # [F,H,W,C] -> [C,F,H,W]
                 input_video = torch.from_numpy(frames_np)
+                video_h, video_w = frames_np.shape[2], frames_np.shape[3]
                 print(f"  Video loaded: {len(frames)} frames, shape={input_video.shape}")
+                print(f"  Video resolution: {video_w}x{video_h}, Target: {width}x{height}")
+                if video_w != width or video_h != height:
+                    print(f"  WARNING: Resolution mismatch! Input video may not align properly.")
                 # Auto-set prefix_frames_count to use all frames from input video
                 if prefix_frames_count == 0:
                     prefix_frames_count = len(frames)
@@ -118,6 +122,7 @@ def generate_video(
     if input_video is not None:
         print(f"  DEBUG: input_video shape = {input_video.shape}, dtype = {input_video.dtype}")
         print(f"  DEBUG: input_video value_range = [{input_video.min():.2f}, {input_video.max():.2f}]")
+        print(f"  DEBUG: FPS: {fps}, num_frames: {num_frames}, expected_duration: {num_frames/fps:.1f}s")
     # Load audio if provided
     input_waveform = None
     input_waveform_sample_rate = None
