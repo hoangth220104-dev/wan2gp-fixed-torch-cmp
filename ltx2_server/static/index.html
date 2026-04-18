@@ -246,15 +246,12 @@
                                                 Source Control
                                             </div>
                                             <div class="form-group">
-                                                <label for="video_prompt_type">Video Prompt Type</label>
+                                                <label for="video_prompt_type">Model Control Flags</label>
                                                 <select id="video_prompt_type" name="video_prompt_type">
-                                                    <option value="VG" selected>Continue Video + Guided (VG)</option>
-                                                    <option value="V">Continue Video (V) - no denoising control</option>
-                                                    <option value="L">Continue Last Video (L)</option>
-                                                    <option value="G">Guided (G)</option>
-                                                    <option value="VLG">All Combined (VLG)</option>
+                                                    <option value="G" selected>Guided (G)</option>
+                                                    <option value="">None</option>
                                                 </select>
-                                                <small>V=continue, G=enables denoising_strength control</small>
+                                                <small>Source-video continuation comes from the uploaded Continue Video. Use G to enable denoising strength control.</small>
                                             </div>
                                             <div class="form-group">
                                                 <label for="input_video_strength">Video Strength: <span
