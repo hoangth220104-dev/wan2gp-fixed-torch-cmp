@@ -77,10 +77,7 @@ def generate_video(
     print(f"  Video Strength: {input_video_strength}")
     print(f"  Denoising Strength: {denoising_strength}")
     print(f"  Prefix Frames: {prefix_frames_count}")
-    if input_video is not None:
-        print(f"  DEBUG: input_video shape = {input_video.shape}, dtype = {input_video.dtype}")
-        print(f"  DEBUG: input_video value_range = [{input_video.min():.2f}, {input_video.max():.2f}]")
-    
+
     # Load images if provided
     image_start = Image.open(image_start_path).convert("RGB") if image_start_path else None
     image_end = Image.open(image_end_path).convert("RGB") if image_end_path else None
@@ -118,6 +115,9 @@ def generate_video(
             print(f"  Error loading video: {e}")
             input_video = None
     
+    if input_video is not None:
+        print(f"  DEBUG: input_video shape = {input_video.shape}, dtype = {input_video.dtype}")
+        print(f"  DEBUG: input_video value_range = [{input_video.min():.2f}, {input_video.max():.2f}]")
     # Load audio if provided
     input_waveform = None
     input_waveform_sample_rate = None
