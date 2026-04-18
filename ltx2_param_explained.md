@@ -419,3 +419,29 @@ self_refiner_setting: 0
 - Faster generation (fewer effective steps)
 - Limited guidance options (no negative prompts)
 - Supports IC-LoRA (Identity Consistency) for control video
+
+
+# Video Prompt Type Modes
+
+  Flag: V
+  Name: Continue Video
+  Description: Uses the uploaded input video as the source/starting point for
+    generation. The model extends or modifies the provided video.
+  ────────────────────────────────────────
+  Flag: L
+  Name: Continue Last Video
+  Description: Uses the previously generated video as the source. Useful for
+    multi-pass extensions where you want to chain generations together.
+  ────────────────────────────────────────
+  Flag: G
+  Name: Guided Denoising
+  Description: Enables guided denoising with denoising_strength control. When
+    enabled, allows you to control when denoising starts (e.g., 0.5 means
+    denoising begins at 50% of inference steps). Without G, denoising defaults
+  to
+     full strength.
+
+  These flags can be combined:
+  - VG = Continue Video + Guided Denoising
+  - VL = Continue Video + Continue Last Video
+  - VLG = All three combined
