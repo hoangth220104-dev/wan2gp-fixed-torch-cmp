@@ -191,6 +191,7 @@ def generate_video(
         guide_scale=guidance_scale,
         alt_guide_scale=1.0,
         input_video=input_video,
+        input_frames=input_video,  # For video_conditioning (like wgp.py does)
         prefix_frames_count=prefix_frames_count,
         frame_num=num_frames,
         height=height,
