@@ -4,11 +4,11 @@ import os
 import time
 import torch
 import numpy as np
+from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
 from PIL import Image
 from pathlib import Path
 from shared.utils.utils import sanitize_file_name
-from shared.utils.utils import process_images_multithread, get_default_workers, resample
 from shared.utils.audio_video import (
     save_video as save_video_file,
     combine_and_concatenate_video_with_audio_tracks,
@@ -18,63 +18,6 @@ from shared.attention import get_supported_attention_modes
 from mmgp import offload
 
 from ltx2_server.model_manager import ModelManager
-
-
-def _load_source_video(
-    input_video_path: str,
-    width: int,
-    height: int,
-    fps: float,
-    block_size: int = 16,
-) -> Optional[torch.Tensor]:
-    """Load and resize a source video like the base app's prefix-video path."""
-    try:
-        import decord
-
-        decord.bridge.set_bridge("torch")
-        reader = decord.VideoReader(input_video_path)
-        source_fps = round(reader.get_avg_fps())
-        frame_indices = resample(
-            source_fps,
-            len(reader),
-            max_target_frames_count=0,
-            target_fps=fps,
-            start_target_frame=0,
-        )
-        if len(frame_indices) == 0:
-            return None
-
-        frames = reader.get_batch(frame_indices)
-        if frames.ndim != 4 or frames.shape[0] == 0:
-            return None
-
-        target_height = (int(height) // block_size) * block_size
-        target_width = (int(width) // block_size) * block_size
-
-        def resize_frame(frame):
-            arr = frame.cpu().numpy() if torch.is_tensor(frame) else np.asarray(frame)
-            if arr.dtype != np.uint8:
-                arr = np.clip(arr, 0, 255).astype(np.uint8)
-            img = Image.fromarray(arr).resize(
-                (target_width, target_height),
-                resample=Image.Resampling.LANCZOS,
-            )
-            return torch.from_numpy(np.array(img, dtype=np.uint8))
-
-        frames_list = [frame for frame in frames]
-        frames_list = process_images_multithread(
-            resize_frame,
-            frames_list,
-            "upsample",
-            wrap_in_list=False,
-            max_workers=get_default_workers(),
-            in_place=True,
-        )
-        prefix_video = torch.stack(frames_list).permute(3, 0, 1, 2)
-        return prefix_video.float().div_(127.5).sub_(1.0)
-    except Exception as e:
-        print(f"  Error loading video: {e}")
-        return None
 
 
 def generate_video(
@@ -143,17 +86,38 @@ def generate_video(
     input_video = None
     if input_video_path:
         print(f"  Loading input video from: {input_video_path}")
-        input_video = _load_source_video(input_video_path, width=width, height=height, fps=fps)
-        if input_video is not None:
-            frame_count = int(input_video.shape[1])
-            video_h, video_w = int(input_video.shape[2]), int(input_video.shape[3])
-            print(f"  Video loaded: {frame_count} frames, shape={input_video.shape}")
-            print(f"  Video resolution: {video_w}x{video_h}, Target: {width}x{height}")
-            if prefix_frames_count == 0:
-                prefix_frames_count = frame_count
-                print(f"  Auto-set prefix_frames_count to {prefix_frames_count} (all preprocessed frames)")
-        else:
-            print("  Warning: No frames extracted from video")
+        try:
+            # Use OpenCV to read video frames
+            import cv2
+            cap = cv2.VideoCapture(input_video_path)
+            frames = []
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frames.append(frame)
+            cap.release()
+
+            if frames:
+                # Convert to tensor [F, H, W, C] then transpose to [C, F, H, W]
+                frames_np = np.array(frames).astype(np.float32) / 255.0 * 2.0 - 1.0  # Normalize to [-1, 1]
+                frames_np = np.transpose(frames_np, (3, 0, 1, 2))  # [F,H,W,C] -> [C,F,H,W]
+                input_video = torch.from_numpy(frames_np)
+                video_h, video_w = frames_np.shape[2], frames_np.shape[3]
+                print(f"  Video loaded: {len(frames)} frames, shape={input_video.shape}")
+                print(f"  Video resolution: {video_w}x{video_h}, Target: {width}x{height}")
+                if video_w != width or video_h != height:
+                    print(f"  WARNING: Resolution mismatch! Input video may not align properly.")
+                # Auto-set prefix_frames_count to use all frames from input video
+                if prefix_frames_count == 0:
+                    prefix_frames_count = len(frames)
+                    print(f"  Auto-set prefix_frames_count to {prefix_frames_count} (all frames)")
+            else:
+                print(f"  Warning: No frames extracted from video")
+        except Exception as e:
+            print(f"  Error loading video: {e}")
+            input_video = None
     
     if input_video is not None:
         print(f"  DEBUG: input_video shape = {input_video.shape}, dtype = {input_video.dtype}")
@@ -227,6 +191,7 @@ def generate_video(
         guide_scale=guidance_scale,
         alt_guide_scale=1.0,
         input_video=input_video,
+        input_frames=input_video,  # For video_conditioning (like wgp.py does)
         prefix_frames_count=prefix_frames_count,
         frame_num=num_frames,
         height=height,
